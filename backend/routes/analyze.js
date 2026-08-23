@@ -35,7 +35,10 @@ const MEDICINE_TERMS = [
 ]
 
 function stripMedicineRecommendations(diagnosis) {
-  if (!Array.isArray(diagnosis.recommendations) || diagnosis.recommendations.length === 0) return
+  if (!Array.isArray(diagnosis.recommendations) || diagnosis.recommendations.length === 0) {
+    diagnosis.homeCare = []
+    return
+  }
   const specialty = diagnosis.specialty ?? 'specialist'
   const clean = []
   let hadMedicine = false
@@ -53,6 +56,11 @@ function stripMedicineRecommendations(diagnosis) {
     clean.push(`Consult ${withArticle(specialty)} for the appropriate medication and dosage — do not self-medicate`)
     diagnosis.recommendations = clean
   }
+
+  // homeCare MUST be derived here, from the now-guaranteed-clean
+  // `recommendations`, never from the raw pre-strip list — see the comment
+  // on `homeCare: null` in adaptToApiResponse() above for why.
+  diagnosis.homeCare = diagnosis.recommendations.slice(1, 3)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -125,11 +133,6 @@ function adaptToApiResponse(diagnosisResult) {
     probability: Math.round(d.confidence * 100),
   }))
 
-  // homeCare isn't a distinct field in the DiseaseEntry schema — derive a
-  // short self-care subset from the full recommendations list rather than
-  // duplicating content storage.
-  const homeCare = (primary.recommendations ?? []).slice(1, 3)
-
   return {
     disease: primary.disease,
     confidence: Math.round(primary.confidence * 100),
@@ -140,7 +143,16 @@ function adaptToApiResponse(diagnosisResult) {
     description: buildDescription(primary),
     recommendations: primary.recommendations,
     redFlags: primary.redFlags ?? [],
-    homeCare,
+    // homeCare is deliberately NOT computed here — it must be derived from
+    // `recommendations` AFTER stripMedicineRecommendations() runs (see the
+    // route handler below), never from the raw pre-strip list. It used to
+    // be sliced from `primary.recommendations` directly at this point,
+    // which bypassed medicine-name stripping entirely: `recommendations`
+    // came out clean, but `homeCare` could still leak a specific drug name
+    // through a side door — the exact thing this whole sanitiser exists to
+    // prevent. Left `null` here as a safety net; anything reaching a
+    // response with `homeCare: null` is a sign this got skipped.
+    homeCare: null,
     whenToSeekHelp: buildWhenToSeekHelp(primary),
     source: 'local-rule-engine',
     _localEngine: true,

@@ -1,9 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { toast } from 'react-hot-toast'
 
 import {
   saveAnalysis, updateAnalysis, getHistory, getAnalysis,
-  deleteAnalysis, clearHistory,
+  deleteAnalysis, clearHistory, getHistoryCount,
 } from '../services/historyService.js'
+
+vi.mock('react-hot-toast', () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }))
 
 const STORAGE_KEY = 'medifind_history'
 
@@ -20,6 +23,7 @@ const diagnosis = {
 describe('historyService', () => {
   beforeEach(() => {
     clearHistory()
+    toast.mockClear()
   })
 
   it('saveAnalysis persists an entry to localStorage and returns it', () => {
@@ -80,5 +84,44 @@ describe('historyService', () => {
 
     expect(getHistory()).toHaveLength(0)
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+  })
+
+  it('getHistoryCount reflects the number of stored entries', () => {
+    expect(getHistoryCount()).toBe(0)
+    saveAnalysis({ symptoms: 'headache one', diagnosis })
+    saveAnalysis({ symptoms: 'headache two', diagnosis })
+    expect(getHistoryCount()).toBe(2)
+  })
+
+  it('caps at 50 entries and shows a one-time archive toast on the entry that overflows the cap', () => {
+    for (let i = 0; i < 50; i++) saveAnalysis({ symptoms: `symptom ${i}`, diagnosis })
+    expect(getHistoryCount()).toBe(50)
+    expect(toast).not.toHaveBeenCalled()
+
+    // The 51st save evicts the oldest entry and should fire the notice.
+    saveAnalysis({ symptoms: 'symptom 50 (overflow)', diagnosis })
+    expect(getHistoryCount()).toBe(50)
+    expect(toast).toHaveBeenCalledTimes(1)
+    expect(toast).toHaveBeenCalledWith(
+      'Older entries have been archived. Sign in to keep full history.',
+      expect.objectContaining({ icon: expect.any(String) }),
+    )
+
+    // Further overflow saves must NOT show the toast again ("one-time").
+    saveAnalysis({ symptoms: 'symptom 51 (overflow)', diagnosis })
+    saveAnalysis({ symptoms: 'symptom 52 (overflow)', diagnosis })
+    expect(toast).toHaveBeenCalledTimes(1)
+    expect(getHistoryCount()).toBe(50)
+  })
+
+  it('the oldest entry is the one actually evicted when the cap overflows', () => {
+    for (let i = 0; i < 50; i++) saveAnalysis({ symptoms: `symptom ${i}`, diagnosis })
+    saveAnalysis({ symptoms: 'newest overflow entry', diagnosis })
+
+    const history = getHistory()
+    expect(history).toHaveLength(50)
+    expect(history[0].symptoms).toBe('newest overflow entry')          // most recent, kept
+    expect(history.some((e) => e.symptoms === 'symptom 0')).toBe(false) // oldest, evicted
+    expect(history.some((e) => e.symptoms === 'symptom 1')).toBe(true) // next-oldest, still kept
   })
 })

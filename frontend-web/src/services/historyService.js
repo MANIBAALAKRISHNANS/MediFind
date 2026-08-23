@@ -1,5 +1,11 @@
+import { toast } from 'react-hot-toast'
+
 const STORAGE_KEY = 'medifind_history'
 const MAX_ENTRIES = 50
+// Persisted (not just per-session) so a returning user who already saw the
+// notice doesn't see it again on every subsequent visit that also happens
+// to be at/over the cap.
+const ARCHIVE_NOTICE_SHOWN_KEY = 'medifind_history_archive_notice_shown'
 
 // ── In-memory cache — avoids JSON.parse on every operation ───────────────────
 let _cache = null     // null means "not loaded yet"
@@ -78,10 +84,33 @@ export function saveAnalysis({ symptoms, diagnosis, facility = null }) {
   }
 
   _cache.unshift(entry)
-  if (_cache.length > MAX_ENTRIES) _cache.length = MAX_ENTRIES
+  if (_cache.length > MAX_ENTRIES) {
+    _cache.length = MAX_ENTRIES
+    notifyArchived()
+  }
   _index.set(entry.id, entry)
   persist()
   return entry
+}
+
+/** One-time (ever, not per-save) toast the first time entries actually get
+ * evicted — not on every save once already at the cap, which would be noisy. */
+function notifyArchived() {
+  try {
+    if (localStorage.getItem(ARCHIVE_NOTICE_SHOWN_KEY)) return
+    localStorage.setItem(ARCHIVE_NOTICE_SHOWN_KEY, '1')
+  } catch {
+    // localStorage unavailable (private browsing, quota) — still show the
+    // toast this once; just can't remember not to show it again.
+  }
+  toast('Older entries have been archived. Sign in to keep full history.', { icon: '🗂️' })
+}
+
+/** Total number of history entries currently stored locally (capped at
+ * MAX_ENTRIES) — lets the UI show a count without loading the full list. */
+export function getHistoryCount() {
+  ensureLoaded()
+  return _cache.length
 }
 
 export function updateAnalysis(id, patch) {

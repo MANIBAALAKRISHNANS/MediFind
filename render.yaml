@@ -29,4 +29,8 @@ services:
       - key: FRONTEND_URL
         sync: false
       - key: CORS_ORIGIN
-        value: "https://localhost,capacitor://localhost"
+        # The native Android app calls the API directly and sends no Origin
+        # header, so it's unaffected by this — set this to your deployed web
+        # frontend's actual URL(s), comma-separated. Server refuses to boot
+        # in production without this set (see backend/server.js).
+        sync: false

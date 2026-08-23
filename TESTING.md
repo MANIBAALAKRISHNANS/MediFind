@@ -192,8 +192,8 @@ Use this checklist when verifying a build before releasing. Test on both **web b
 
 ## ✅ Pre-Release Checklist
 
-- [ ] `backend/.env` — all keys filled in (GEMINI_API_KEY, DATABASE_URL, JWT_SECRET)
-- [ ] `frontend/.env.production` — `VITE_API_URL` points to deployed backend
+- [ ] `backend/.env` — all keys filled in (DATABASE_URL, JWT_SECRET, CORS_ORIGIN)
+- [ ] `frontend-web/.env.production` — `VITE_API_URL` points to deployed backend
 - [ ] `.gitignore` excludes both `.env` files
 - [ ] `npm run build` (frontend) completes without TypeScript / lint errors
 - [ ] `npx prisma migrate deploy` run against production DB

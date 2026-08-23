@@ -19,6 +19,7 @@
 10. [Full Bug Audit — All Errors Found & Fixed](#10-full-bug-audit--all-errors-found--fixed)
 11. [Build Status](#11-build-status)
 12. [Remaining Manual Actions Before Deployment](#12-remaining-manual-actions-before-deployment)
+13. [Rewrite Cycle — 2026-08-23](#13-rewrite-cycle--2026-08-23)
 
 ---
 
@@ -887,3 +888,65 @@ These items cannot be automated — they require your credentials or infrastruct
 ---
 
 *End of Report — MediFind Audit Session 2026-06-01*
+
+---
+
+## 13. REWRITE CYCLE — 2026-08-23
+
+> Everything changed in the follow-up rewrite cycle covering the Android platform migration, the diagnosis engine replacement, the auth security fixes, the doctor-finding rework, and the CI/CD rebuild. This section is additive — sections 1-12 above are preserved as the historical record of the original 2026-06-01 audit and are **not** retroactively edited, including their references to since-removed things (Gemini, Capacitor, `frontend/`) — those are what the app looked like *at that time*.
+
+### 13.1 — Capacitor removed, replaced with a native Kotlin Android app
+
+The mobile app was previously a Capacitor-wrapped WebView around the same React bundle as the web app. It's now `android-app/` — 100% Kotlin + Jetpack Compose (Material3), MVVM (`viewmodel/` → `data/repository/` → `data/api/` + `data/local/`), Hilt DI, Retrofit2/OkHttp/Moshi for networking, Room for an offline history cache, EncryptedSharedPreferences for the JWT, and Google Play Services FusedLocationProvider for doctor search. It talks to the exact same backend REST API as the web app — no separate mobile backend. `frontend-web/` is now web-only. All `@capacitor/*` imports, `capacitor.config.*` files, and Capacitor-specific env-var/CORS handling (`capacitor://localhost`) have been removed; confirmed via repo-wide grep — zero remaining references outside this historical section and section 1-12 above.
+
+### 13.2 — Gemini API removed, replaced with a local rule-based diagnosis engine
+
+The AI symptom analysis previously called the Google Gemini API (rate-limited via `geminiQueue.js`'s 12 RPM token bucket, requiring a `GEMINI_API_KEY`). It's now `backend/utils/localDiagnosis.js` — a fully local, deterministic, rule-based engine scoring free-text symptoms against 275 disease entries (`backend/utils/diseases/`, one file per body-system category) with weighted primary/secondary/differentiating symptoms, duration/severity/negation parsing, a synonym map, and a red-flags safety net that forces `urgency: 'emergency'` on genuine warning signs even when nothing else about the input qualifies. No external API call, no network dependency, no API key, deterministic and fully auditable output. `geminiQueue.js` and every `GEMINI_API_KEY` reference are gone from code (confirmed via grep — the only remaining mentions are in this historical report, describing what was removed, and are intentionally left as-is).
+
+Building and hardening this engine surfaced four distinct structural bug classes across the disease database, found and fixed individually (not via mechanical find-replace) across ~90 disease entries:
+
+1. **Unmatchable prose red_flags** — the matcher requires a red_flag phrase to appear as an exact contiguous substring of the normalized input; many entries stored red_flags as full prose sentences ("call an ambulance if you experience sudden severe headache unlike any before") that could never literally match anything a user would type. Rewritten into short, literally-matchable trigger phrases per entry, based on how a real patient would actually describe that specific emergency — including natural first-person phrasing (patients don't say "worst headache of YOUR life" about themselves) and adding realistic alternate primary-symptom phrasings where an entry had only one, which structurally blocked it from ever qualifying (see class 3 below, since fixed at the engine level instead).
+2. **Over-broad bare-term red_flag collisions** — several entries carried a single common/generic word (`unexplained weight loss`, `fatigue`, `confusion`, `abdominal swelling`, bare `testicular pain`) as a stand-alone red_flag. Since red_flags are checked against *every* DB entry regardless of which condition the rest of the input suggests, a bare generic term on one entry could silently hijack and force `urgency: 'emergency'` on completely unrelated symptom descriptions elsewhere in the app (found via DB-wide grep for the pattern, not just the one entry that surfaced it in testing). Fixed per-entry by moving non-independently-dangerous phrases to `differentiating` (still contributes to score/confidence, never forces emergency) and keeping only genuinely independent dangers (sepsis, perforation, obstruction, torsion, DVT, anaphylaxis, self-harm, sudden vision/hearing loss, diabetic foot) as true red_flags — applying individual clinical judgment per entry, not a blanket rule.
+3. **Hardcoded `MIN_PRIMARY_MATCHES = 2` qualifying gate** — 58 of 275 entries (21% of the DB) define only one clinically real primary symptom (e.g. `bone_osteoporosis`: `['back pain']`), so the fixed "need ≥2 primary matches to qualify" gate made them structurally unreachable through any phrasing — 23 of the 58 (with no red_flags either) were undiagnosable by *any* input, permanently. Fixed at the engine level: the required primary-match count now scales to `min(2, entry's actual primary count)`, instead of padding single-symptom conditions with synthetic "primary" symptoms just to satisfy an arbitrary fixed threshold.
+4. **Synonym-map collision defeating a differentiator** — `synonyms.js` mapped `'irregular heartbeat'` to the same canonical token as `'palpitations'`/`'racing heart'`, so `heart_arrhythmia_afib`'s `irregular heartbeat` *differentiating* symptom (meant to distinguish AFib from ordinary/anxiety-driven palpitations) auto-matched on every mention of palpitations regardless of actual rhythm irregularity — handing over free extra score that let a single vague word ("racing heart") alone cross the qualifying threshold. Fixed by removing that specific over-broad synonym mapping; confirmed via a live-scoring load test that a bare vague symptom no longer inappropriately qualifies a diagnosis on its own.
+
+All four classes were verified with real executed output (not manual tracing) via `backend/test/localDiagnosis.test.js` (one true-positive + one true-negative per fixed entry), `backend/test/localDiagnosis-broadsweep.test.js` (ordinary phrases must never return `emergency`), and `backend/tests/analyze.test.js` (real emergency phrases through the actual `POST /api/analyze` HTTP endpoint, confirming `urgency: 'emergency'` survives the full pipeline — cache lookup, India-pattern cross-check, medicine-name stripping — not just the engine in isolation).
+
+### 13.3 — Password reset vulnerability fixed
+
+`POST /api/auth/reset-password` now *requires* a token: a cryptographically random 32-byte token, SHA-256-hashed before being stored, looked up by that hash with a 1-hour expiry check (`resetTokenExpires: { gt: new Date() }`). A request with only an email — no token — is rejected with 400 and can never reset a password. Verified live: signed up a real test account, confirmed a token-less reset request returns 400 and the original password still works afterward.
+
+### 13.4 — User enumeration vulnerability fixed
+
+`POST /api/auth/forgot-password` returns the exact same `200` response and message ("If an account with that email exists, a password reset link has been sent.") whether or not the email is registered — verified live against both a real and a non-existent account, byte-identical responses, never a 404.
+
+### 13.5 — CORS production guard added
+
+`backend/server.js` refuses to boot (`process.exit(1)`) in production if `CORS_ORIGIN` is unset — verified live by starting the server with `NODE_ENV=production` and no `CORS_ORIGIN`: exits 1 with a clear error banner, doesn't silently fall back to reflecting any origin.
+
+### 13.6 — Doctor finding improved
+
+- Specialty matching: a 34-specialty alias map (`backend/utils/ranking.js`) with common Indian-English variations ("GP" / "family medicine" → General Physician, "heart specialist" → Cardiologist, etc.), word-boundary-safe matching to avoid false positives like "gp" matching inside "Group Hospital".
+- Progressive radius expansion: 5km → 10km → 15km → 25km, only widening on a confirmed zero-result response.
+- A genuine timeout (as opposed to a clean empty result) shrinks to a single fast 3km/8s retry instead of continuing to widen, since a timeout means the area is too data-dense to answer quickly at the current radius.
+- Geohash-bucketed 20-minute cache for repeat searches in the same area.
+- Facilities with neither a name nor an address are disqualified (raw/incomplete OSM nodes).
+- Graceful "no exact specialty match — here are nearby facilities" fallback instead of an empty result.
+
+### 13.7 — CI/CD pipeline rebuilt
+
+`.github/workflows/medifind-ci.yml` replaces a copy-pasted, wrong-project workflow (`travelsync-ci.yml`, which referenced a different app's paths and nonexistent test scripts — the root cause of 5 of 10 jobs failing). The new pipeline: 10 jobs in 3 dependency groups (security review, backend/frontend tests, web/Android builds → load tests, E2E tests, live-deployment check → Android Appium E2E with a graceful no-emulator skip, and a unified summary), Node 20, npm caching, per-job timeouts, and a real Postgres service container for the backend/load/E2E jobs. `backend/tests/` (supertest against the real Express app, not `localDiagnose()` directly) and `frontend-web/src/__tests__/` (Vitest + Testing Library) were built from scratch — this project had zero automated tests before this cycle (see section 12's "No tests" line above). A Playwright E2E spec exists with every selector verified against real source (aria-labels, button text, routes); browser installation succeeded but actual execution couldn't be verified in this specific sandboxed environment (a Windows DLL-class crash on browser launch, reproduced even for a bare `about:blank` page) — expected to run normally on GitHub's standard hosted runners.
+
+Building the load-test job surfaced a genuine, unrelated performance bug in the diagnosis engine: `normalize()` (`backend/utils/nlp/tokenizer.js`) was re-processing the entire static 3,344-phrase disease database through its synonym-matching loop on *every single request* — measured at ~68ms/request, which under 50 concurrent requests amplified to ~3.4s average response time. Fixed with a bounded (8,000-entry, FIFO) memoization cache — dropped to ~0.84ms/request, confirmed with a live load test (50 concurrent + a follow-up burst proving the rate limiter engages) after the fix.
+
+### 13.8 — Dead code removed
+
+`frontend/src/services/rankingService.js` (client-side facility ranking, superseded by and duplicating `backend/utils/ranking.js`, already unused) and the stale `"medifind": "file:.."` self-dependency in `backend/package.json` (a leftover self-reference to the project root, imported by nothing) were both confirmed-safe-to-remove via repo-wide grep before deletion, and removed.
+
+### 13.9 — History pagination
+
+`frontend-web/src/services/historyService.js`'s local (localStorage) history cache silently evicted the oldest entry past 50 with no user-facing signal. It now shows a one-time toast ("Older entries have been archived. Sign in to keep full history.") the first time eviction actually happens — persisted so it doesn't reappear on every subsequent visit, and doesn't re-fire on every save once already at the cap. Added `getHistoryCount()` for the UI to display the count. The Android app's local history cache (Room, `AnalysisDao`) has no equivalent cap — it's a pure offline mirror of server-paginated data (network-first, Room as fallback only), not an independent local-only store — so there was nothing to apply the same fix to there.
+
+---
+
+*End of Rewrite Cycle Report — 2026-08-23*
