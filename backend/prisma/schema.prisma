@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String     @id @default(uuid())
+  name              String
+  email             String     @unique
+  password          String
+  resetToken        String?
+  resetTokenExpires DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  analyses          Analysis[]
+
+  @@index([email])
+}
+
+model Analysis {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symptoms        String
+
+  // Diagnosis fields (flattened from JSON for queryability)
+  disease         String?
+  specialty       String?
+  severity        String?
+  urgency         String?
+  description     String?
+  recommendations String[] @default([])
+  redFlags        String[] @default([])
+
+  // Best match fields (nullable — set after doctor search)
+  matchName       String?
+  matchAddress    String?
+  matchPhone      String?
+  matchWebsite    String?
+  matchType       String?
+  matchDistanceKm Float?
+  matchLat        Float?
+  matchLng        Float?
+  matchOsmMapUrl         String?
+  matchDirectionsUrl     String?
+  matchScore             Int?
+  matchSpecialtyScore    Float?
+  matchDistanceScore     Float?
+  matchTypeScore         Float?
+  matchCompletenessScore Float?
+
+  // Location used
+  locationLat     Float?
+  locationLng     Float?
+
+  createdAt       DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+}

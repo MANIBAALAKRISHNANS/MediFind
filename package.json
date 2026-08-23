@@ -1,0 +1,14 @@
+{
+  "name": "medifind",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently --names \"API,WEB\" --prefix-colors \"cyan,magenta\" \"npm --prefix backend run dev\" \"npm --prefix frontend-web run dev\"",
+    "build": "npm --prefix frontend-web run build",
+    "android:info": "echo 'The native Android app lives in /android-app and is built separately via Gradle — see android-app/README or run: cd android-app && ./gradlew assembleDebug'"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

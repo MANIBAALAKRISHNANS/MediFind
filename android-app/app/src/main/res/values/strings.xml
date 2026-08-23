@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MediFind</string>
+
+    <!-- Disclaimer — shown on every screen -->
+    <string name="medical_disclaimer">MediFind is not a substitute for professional medical advice. Contact: medifind@gmail.com</string>
+
+    <!-- Emergency numbers (India) -->
+    <string name="emergency_ambulance">108</string>
+    <string name="emergency_all">112</string>
+    <string name="emergency_banner">Emergency? Call 112 (All Emergencies) or 108 (Ambulance) now.</string>
+
+    <!-- Home screen -->
+    <string name="home_title">MediFind</string>
+    <string name="home_subtitle">AI-Powered Symptom Checker</string>
+    <string name="symptom_hint">Describe your symptoms in detail (e.g. \"fever, headache, and body ache for 2 days\")…</string>
+    <string name="analyze_button">Analyze Symptoms</string>
+    <string name="symptom_too_short">Please describe your symptoms in at least 10 characters.</string>
+
+    <!-- Auth -->
+    <string name="login_title">Welcome Back</string>
+    <string name="signup_title">Create Account</string>
+    <string name="email_label">Email</string>
+    <string name="password_label">Password</string>
+    <string name="name_label">Full Name</string>
+    <string name="login_button">Sign In</string>
+    <string name="signup_button">Create Account</string>
+    <string name="no_account">Don\'t have an account? Sign up</string>
+    <string name="have_account">Already have an account? Sign in</string>
+
+    <!-- Analysis result -->
+    <string name="find_doctor_button">Find Nearby Doctor</string>
+    <string name="differential_diagnosis">Other Conditions Considered</string>
+    <string name="recommendations_title">Recommendations</string>
+    <string name="red_flags_title">Warning Signs</string>
+    <string name="home_care_title">Home Care</string>
+
+    <!-- Doctor result -->
+    <string name="best_match_title">Best Match Found</string>
+    <string name="call_button">Call to Book</string>
+    <string name="directions_button">Directions</string>
+    <string name="view_map_button">View on Map</string>
+
+    <!-- History -->
+    <string name="history_title">History</string>
+    <string name="history_empty">No past analyses yet.</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Profile</string>
+    <string name="logout_button">Log Out</string>
+
+    <!-- Generic -->
+    <string name="retry_button">Retry</string>
+    <string name="loading">Loading…</string>
+</resources>

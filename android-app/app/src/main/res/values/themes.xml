@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Compose owns all UI theming (ui/theme/Theme.kt). This base platform theme
+      only controls the window background shown before Compose takes over, and
+      is applied via android:theme in the manifest.
+    -->
+    <style name="Theme.MediFind" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/medical_600</item>
+        <item name="android:windowBackground">@color/background_light</item>
+        <item name="android:navigationBarColor">@color/surface_light</item>
+    </style>
+</resources>

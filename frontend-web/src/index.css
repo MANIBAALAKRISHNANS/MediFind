@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-ios-bg text-ios-label font-sans antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior: none;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input, textarea, button {
+    font-family: inherit;
+  }
+}
+
+@layer components {
+  /* ── Cards ─────────────────────────────────────────────────────────────── */
+  .ios-card {
+    @apply bg-white rounded-ios-lg shadow-ios-card border border-black/[0.04];
+  }
+  .ios-card-lifted {
+    @apply bg-white rounded-ios-xl shadow-ios-lifted;
+  }
+
+  /* ── Buttons ────────────────────────────────────────────────────────────── */
+  .ios-button-primary {
+    @apply bg-medical-600 text-white font-semibold rounded-ios px-6 py-3.5
+           shadow-ios-button active:scale-[0.97] active:bg-medical-700
+           transition-all duration-150 disabled:opacity-50 disabled:active:scale-100
+           flex items-center justify-center gap-2;
+  }
+  .ios-button-secondary {
+    @apply bg-ios-bg text-medical-600 font-semibold rounded-ios px-6 py-3.5
+           active:scale-[0.97] active:bg-ios-gray3 transition-all duration-150
+           flex items-center justify-center gap-2;
+  }
+  .ios-button-danger {
+    @apply bg-ios-red text-white font-semibold rounded-ios px-6 py-3.5
+           active:scale-[0.97] transition-all duration-150
+           flex items-center justify-center gap-2;
+  }
+  .ios-button-ghost {
+    @apply text-ios-blue font-medium px-4 py-2 rounded-ios
+           active:bg-ios-bg transition-colors
+           flex items-center justify-center gap-2;
+  }
+
+  /* ── Form inputs ────────────────────────────────────────────────────────── */
+  .ios-input {
+    @apply w-full bg-ios-bg rounded-ios px-4 py-3.5 text-ios-label
+           placeholder:text-ios-gray border-0 outline-none
+           focus:ring-2 focus:ring-medical-500/40 transition-all;
+  }
+
+  /* ── List / section helpers ─────────────────────────────────────────────── */
+  .ios-section-header {
+    @apply text-xs font-semibold uppercase tracking-wider text-ios-gray px-4 mb-2;
+  }
+  .ios-list-item {
+    @apply bg-white px-4 py-3.5 border-b border-ios-separator/40
+           last:border-b-0 active:bg-ios-bg/50 transition-colors;
+  }
+
+  /* ── Navigation bar ─────────────────────────────────────────────────────── */
+  .glass-bar {
+    @apply bg-white/80 backdrop-blur-ios border-b border-black/5;
+  }
+
+  /* ── Severity badges ────────────────────────────────────────────────────── */
+  .badge-mild     { @apply bg-ios-green/15  text-ios-green;  }
+  .badge-moderate { @apply bg-ios-orange/15 text-ios-orange; }
+  .badge-severe   { @apply bg-ios-red/15    text-ios-red;    }
+  .badge-default  { @apply bg-medical-50    text-medical-700; }
+}
+
+/* ── Safe area helpers (notch / home indicator) ───────────────────────────── */
+@supports (padding: env(safe-area-inset-top)) {
+  .safe-top    { padding-top:    env(safe-area-inset-top);    }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* Bottom padding that adds the home-indicator safe area on top of 6rem baseline */
+.pb-page {
+  padding-bottom: max(6rem, calc(5rem + env(safe-area-inset-bottom, 0px)));
+}
+
+/* ── Custom scrollbar ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #c7c7cc; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #aeaeb2; }
