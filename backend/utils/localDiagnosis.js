@@ -201,6 +201,24 @@ function buildMatchSummary(result, confidence, severity) {
     recommendations = ['SEEK IMMEDIATE MEDICAL ATTENTION — call 112 or 108 now.', ...recommendations]
   }
 
+  // Severity/urgency invariant — these two fields are derived independently
+  // above (severity from determineSeverity()'s qualifier/red-flag logic;
+  // urgency from this entry's OWN severity_levels[severity].urgency, which
+  // ~90 DB entries deliberately set to 'emergency' even on their 'mild' or
+  // 'moderate' tier — e.g. viral meningitis, where "mild" symptoms still
+  // can't be told apart from bacterial meningitis without a lumbar puncture,
+  // so urgency stays emergency regardless of how mild it looks). That's
+  // clinically correct as two separate axes, but rendered side by side in
+  // the UI ("Severity: Mild" next to an "EMERGENCY" banner) it reads as a
+  // flat self-contradiction, not a nuanced "looks mild, treat as urgent"
+  // message. Never let severity be non-severe when urgency is emergency —
+  // this is a strict output-shaping invariant, not a decision (there is no
+  // amount of clinical nuance a badge pair can express without also failing
+  // to alarm a user reading only the big red banner).
+  if (urgency === 'emergency' && severity !== 'severe') {
+    severity = 'severe'
+  }
+
   return {
     disease: entry.name,
     id: entry.id,

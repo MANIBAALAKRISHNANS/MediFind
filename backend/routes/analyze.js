@@ -81,13 +81,26 @@ function applyIndiaPatternCrossCheck(diagnosis, symptomsText) {
     diagnosis._adjustedBy = 'india-pattern'
   }
 
+  // This heuristic's `confidence` (50 + matchCount*15, capped 95) comes from
+  // a completely different formula than the local engine's own confidence
+  // (localDiagnosis.js computeConfidence — weighted symptom-match ratios).
+  // The two are NOT on a shared scale, so a raw `topPattern.confidence - 20`
+  // can land above `diagnosis.confidence` purely by coincidence, and did:
+  // "Dengue Fever 60%" rendered as a *differential* next to a "Viral
+  // Meningitis 58%" *primary*, reading as the differential having outscored
+  // the disease the engine actually picked. These entries exist to flag
+  // "also consider this" alternates, not to out-rank the primary — cap them
+  // strictly below it so the two numbers never contradict each other on
+  // screen, regardless of which unrelated formula produced them.
+  const probability = Math.max(0, Math.min(topPattern.confidence - 20, diagnosis.confidence - 1))
+
   diagnosis.differentialDiagnosis = diagnosis.differentialDiagnosis ?? []
   for (const name of topPattern.diseases) {
     const alreadyPresent = diagnosis.differentialDiagnosis.some(
       (x) => x.name.toLowerCase().includes(name.toLowerCase())
     )
     if (!alreadyPresent) {
-      diagnosis.differentialDiagnosis.push({ name, probability: topPattern.confidence - 20 })
+      diagnosis.differentialDiagnosis.push({ name, probability })
     }
   }
   diagnosis.differentialDiagnosis = diagnosis.differentialDiagnosis.slice(0, 4)
