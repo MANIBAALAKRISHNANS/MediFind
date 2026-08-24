@@ -2,7 +2,6 @@ import { Router } from 'express'
 import crypto from 'crypto'
 import Joi from 'joi'
 import nodemailer from 'nodemailer'
-import dns from 'dns/promises'
 
 import prisma from '../db.js'
 import { hashPassword, comparePassword } from '../utils/password.js'
@@ -85,18 +84,22 @@ if (process.env.RESEND_API_KEY) {
 }
 
 // ── Nodemailer SMTP transporter (lazy — only when SMTP is configured) ─────────
-// Pre-resolve the hostname to IPv4 to avoid ENETUNREACH on networks where
-// IPv6 is unavailable (Node 18+ prefers IPv6 in DNS results by default).
+// FIX: this used to pre-resolve SMTP_HOST to a raw IPv4 address (via
+// dns.resolve4()) to dodge ENETUNREACH on IPv6-less networks. That rewrite
+// broke STARTTLS certificate validation instead — Gmail's cert is issued for
+// the hostname `smtp.gmail.com`, not for whatever IP it resolves to, so
+// connecting by IP always failed with:
+//   "Hostname/IP does not match certificate's altnames: IP: <addr> is not
+//   in the cert's list"
+// The IPv6 problem it was working around is already solved globally in
+// server.js via `dns.setDefaultResultOrder('ipv4first')` (Node then resolves
+// smtp.gmail.com to an IPv4 address on its own before connecting), so the
+// manual resolve-and-substitute step here was both redundant and actively
+// breaking otherwise-valid credentials. Just use the hostname directly.
 let smtpTransporter = null
 if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-  let _smtpHost = process.env.SMTP_HOST
-  try {
-    const addrs = await dns.resolve4(_smtpHost)
-    if (addrs.length) _smtpHost = addrs[0]
-  } catch { /* keep hostname as-is */ }
-
   smtpTransporter = nodemailer.createTransport({
-    host:              _smtpHost,
+    host:              process.env.SMTP_HOST,
     port:              Number(process.env.SMTP_PORT) || 587,
     secure:            Number(process.env.SMTP_PORT) === 465,
     requireTLS:        true,
@@ -154,6 +157,9 @@ function buildResetHtml(resetUrl, support) {
 }
 
 // ── sendResetEmail — tries Resend → SMTP → console fallback ──────────────────
+// Returns { delivered, provider } so the caller can tell whether the email
+// actually went out — see the dev-only `delivered` field on
+// POST /api/auth/forgot-password below.
 async function sendResetEmail(email, token, resetBase) {
   const base     = resetBase || process.env.FRONTEND_URL || 'http://localhost:5000'
   const resetUrl = `${base}/reset-password?token=${token}&email=${encodeURIComponent(email)}`
@@ -173,7 +179,7 @@ async function sendResetEmail(email, token, resetBase) {
         text:    `Reset your MediFind password\n\nClick the link below (expires in 1 hour):\n${resetUrl}\n\nIf you didn't request this, ignore this email.\n\nMediFind Team`,
       })
       console.log(`✉️  Reset email sent via Resend to: ${email}`)
-      return
+      return { delivered: true, provider: 'resend' }
     } catch (err) {
       console.warn(`⚠️  Resend failed: ${err.message} — trying SMTP fallback…`)
     }
@@ -190,7 +196,7 @@ async function sendResetEmail(email, token, resetBase) {
         html:    buildResetHtml(resetUrl, support),
       })
       console.log(`✉️  Reset email sent via SMTP to: ${email}`)
-      return
+      return { delivered: true, provider: 'smtp' }
     } catch (err) {
       console.warn(`⚠️  SMTP failed: ${err.message}`)
     }
@@ -212,6 +218,7 @@ async function sendResetEmail(email, token, resetBase) {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Email delivery failed — no working mail provider configured.')
   }
+  return { delivered: false, provider: null }
 }
 
 
@@ -272,6 +279,7 @@ const FORGOT_PASSWORD_RESPONSE = {
 
 router.post('/forgot-password', validate(forgotSchema), async (req, res, next) => {
   const email = req.body.email.toLowerCase()
+  let delivered = false // stays false for a nonexistent account — see the dev-only note below
 
   try {
     const user = await prisma.user.findUnique({ where: { email } })
@@ -286,12 +294,27 @@ router.post('/forgot-password', validate(forgotSchema), async (req, res, next) =
       })
 
       try {
-        await sendResetEmail(email, token)
+        const result = await sendResetEmail(email, token)
+        delivered = result?.delivered ?? false
       } catch (mailErr) {
-        // Logged, never surfaced — surfacing a mail-delivery failure here would let
-        // an attacker tell "account exists but mail failed" apart from "no account".
+        // Logged, never surfaced in the response — surfacing a mail-delivery
+        // failure here would let an attacker tell "account exists but mail
+        // failed" apart from "no account".
         console.error('[forgot-password] sendResetEmail failed:', mailErr.message)
       }
+    }
+
+    // `delivered` is deliberately NOT included in the response in production —
+    // doing so would hand any caller (not just this app's own frontend) an
+    // enumeration oracle: a nonexistent account can never set `delivered`
+    // true, so its presence/value alone would leak "does this email have an
+    // account" regardless of what the frontend UI chooses to render. It's
+    // still always logged server-side (and included in the dev response body
+    // for convenience) so a developer running locally knows to check the
+    // terminal for the console-fallback reset link.
+    console.log(`[forgot-password] delivered=${delivered} for ${email}`)
+    if (process.env.NODE_ENV !== 'production') {
+      return res.json({ ...FORGOT_PASSWORD_RESPONSE, delivered })
     }
 
     return res.json(FORGOT_PASSWORD_RESPONSE)
