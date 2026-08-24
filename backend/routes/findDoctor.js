@@ -17,7 +17,19 @@ const findDoctorSchema = Joi.object({
   lat:        Joi.number().min(-90).max(90).required(),
   lng:        Joi.number().min(-180).max(180).required(),
   specialty:  Joi.string().min(1).required(),
-  analysisId: Joi.string().uuid().optional(),
+  // .allow(null) matters here, not just .optional(): POST /api/analyze
+  // legitimately returns analysisId: null when its own DB write failed (see
+  // that route's try/catch), and both clients forward that value verbatim —
+  // frontend-web/src/pages/HomePage.jsx sends `analysisId ?? null` and
+  // Android's DoctorRequest.analysisId (nullable) gets JSON-serialized as a
+  // literal `null` by Moshi, neither of which OMITS the key. .optional()
+  // alone only permits the key to be absent; a *present* null still fails
+  // Joi's string type check with "analysisId must be a string" — exactly
+  // the 400 this was surfacing to users who search for a doctor right after
+  // an analysis whose DB save silently failed. null just means "don't link
+  // this match to an analysis row", which the handler below already
+  // handles safely (`if (analysisId && bestMatch)`).
+  analysisId: Joi.string().uuid().allow(null).optional(),
 })
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter'

@@ -87,6 +87,35 @@ describe('POST /api/find-doctor (protected)', () => {
     assert.equal(res.status, 400)
   })
 
+  // Regression test: POST /api/analyze can legitimately return
+  // analysisId: null (its own DB write failed), and both clients forward
+  // that null verbatim rather than omitting the key. This used to 400 with
+  // `"analysisId" must be a string` — see findDoctorSchema's
+  // `.allow(null)` comment.
+  test('a null analysisId (unsaved analysis) is accepted, not rejected as an invalid string', async (t) => {
+    t.mock.method(axios, 'post', async () => {
+      return { data: { elements: [fakeCardiologyHospital(13.081, 80.271)] } }
+    })
+
+    const res = await request(app)
+      .post('/api/find-doctor')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ lat: 13.0827, lng: 80.2707, specialty: 'cardiologist', analysisId: null })
+
+    assert.equal(res.status, 200)
+    assert.equal(res.body.bestMatch.name, 'Test Heart Centre')
+  })
+
+  test('a malformed (non-UUID) analysisId is still rejected with 400', async () => {
+    const res = await request(app)
+      .post('/api/find-doctor')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ lat: 13.08, lng: 80.27, specialty: 'cardiologist', analysisId: 'not-a-real-uuid' })
+
+    assert.equal(res.status, 400)
+    assert.equal(res.body.code, 'INVALID_INPUT')
+  })
+
   test('an Overpass timeout is surfaced as a clear 504, not a 500', async (t) => {
     t.mock.method(axios, 'post', async () => {
       const err = new Error('timeout of 15000ms exceeded')
