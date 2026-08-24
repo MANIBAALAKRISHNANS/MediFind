@@ -17,6 +17,9 @@ dist/
 *.swp
 *.swo
 
+# Claude Code tooling artifacts (local session state, not project code)
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db
