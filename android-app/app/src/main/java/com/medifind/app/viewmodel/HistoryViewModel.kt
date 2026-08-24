@@ -22,6 +22,7 @@ data class HistoryListUiState(
     val isLoadingMore: Boolean = false,
     val hasMore: Boolean = true,
     val errorMessage: String? = null,
+    val isClearing: Boolean = false,
 )
 
 data class HistoryDetailUiState(
@@ -108,6 +109,28 @@ class HistoryViewModel @Inject constructor(
             when (val result = historyRepository.deleteAnalysis(id)) {
                 is ApiResult.Success -> onDeleted()
                 is ApiResult.Error -> _detailUiState.update { it.copy(errorMessage = result.message) }
+            }
+        }
+    }
+
+    /** Deletes one row directly from the list (HistoryScreen's per-row overflow menu). */
+    fun deleteFromList(id: String) {
+        viewModelScope.launch {
+            when (val result = historyRepository.deleteAnalysis(id)) {
+                is ApiResult.Success -> Unit
+                is ApiResult.Error -> _listUiState.update { it.copy(errorMessage = result.message) }
+            }
+        }
+    }
+
+    /** "Clear All" — matches HistoryPage.jsx's confirm-then-wipe-everything button. */
+    fun clearAll() {
+        viewModelScope.launch {
+            _listUiState.update { it.copy(isClearing = true, errorMessage = null) }
+            val ids = historyItems.value.map { it.id }
+            when (val result = historyRepository.clearAllHistory(ids)) {
+                is ApiResult.Success -> _listUiState.update { it.copy(isClearing = false) }
+                is ApiResult.Error -> _listUiState.update { it.copy(isClearing = false, errorMessage = result.message) }
             }
         }
     }

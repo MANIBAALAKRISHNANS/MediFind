@@ -41,12 +41,15 @@ private fun severityPalette(severity: String?): SeverityPalette = when (severity
     else -> SeverityPalette(SeverityMildBg, SeverityMildBorder, SeverityMildText)
 }
 
+// Matches frontend-web/src/components/DiagnosisCard.jsx's URGENCY_CONFIG exactly,
+// including its fallback: an unrecognized value (or "see-doctor") reads as
+// the same "schedule an appointment" copy, not a generic placeholder.
 private fun urgencyLabel(urgency: String?): String = when (urgency) {
-    "self-care" -> "Self-Care — Manageable at Home"
-    "see-doctor-soon" -> "See a Doctor Within a Few Days"
-    "see-doctor-today" -> "See a Doctor Today — Do Not Delay"
-    "emergency" -> "MEDICAL EMERGENCY — Call 108 Now"
-    else -> "Consult a Doctor"
+    "self-care" -> "Self-care — manageable at home"
+    "see-doctor-soon" -> "See a Doctor — within the next few days"
+    "see-doctor-today" -> "See a Doctor Today — do not delay"
+    "emergency" -> "MEDICAL EMERGENCY"
+    else -> "See a Doctor — schedule an appointment"
 }
 
 /**

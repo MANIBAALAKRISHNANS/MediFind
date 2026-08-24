@@ -12,9 +12,26 @@ fun dialPhone(context: Context, phone: String) {
     context.startActivity(intent)
 }
 
-/** Opens a URL (OSM map / directions link) in the browser. */
+/** Opens a URL (OSM map / directions / facility website link) in the browser. */
 fun openUrl(context: Context, url: String) {
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+    context.startActivity(intent)
+}
+
+/**
+ * Opens the device's email app pre-addressed to [to] (and pre-filled with
+ * [subject] when given) — the native equivalent of the web app's `mailto:`
+ * links (Contact Support / Report a Problem on Profile, the support footer
+ * on Forgot Password). Uses ACTION_SENDTO (not ACTION_SEND) so only email
+ * apps are offered, matching what a `mailto:` link does in a browser.
+ */
+fun sendEmail(context: Context, to: String, subject: String? = null) {
+    val uri = buildString {
+        append("mailto:")
+        append(Uri.encode(to).replace("%40", "@"))
+        if (subject != null) append("?subject=").append(Uri.encode(subject))
+    }
+    val intent = Intent(Intent.ACTION_SENDTO, Uri.parse(uri))
     context.startActivity(intent)
 }
 

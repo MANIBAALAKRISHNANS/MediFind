@@ -27,11 +27,41 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.MediFind"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+              App Link for the password-reset email — native equivalent of the
+              web app opening frontend-web/src/pages/auth/ResetPasswordPage.jsx
+              via a plain URL. The backend serves GET /reset-password itself
+              (see backend/app.js) at FRONTEND_URL's host — ${deepLinkHost}
+              below is that same host, supplied per build type in
+              app/build.gradle.kts so it always matches BuildConfig.API_BASE_URL.
+
+              android:autoVerify="true" asks Android to silently confirm app
+              ownership via https://${deepLinkHost}/.well-known/assetlinks.json
+              (that file must list this app's release signing certificate's
+              SHA-256 fingerprint) — publishing it is a backend/hosting change
+              outside this module, not yet done (see android-app/README.md).
+              Until then, Android still offers "MediFind" in the chooser
+              sheet for this link (an unverified but still BROWSABLE intent
+              filter); ui/screens/ResetPasswordScreen.kt has a manual
+              paste-the-link fallback for whenever the OS opens a browser
+              instead.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="${deepLinkHost}"
+                    android:pathPrefix="/reset-password" />
             </intent-filter>
         </activity>
 

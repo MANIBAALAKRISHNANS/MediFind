@@ -17,9 +17,43 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * Wraps every /api/history* endpoint (backend/routes/history.js) and keeps
- * the Room cache in sync so the History list/detail screens work offline —
- * the same dual-write (server + local) behaviour the web app achieves with
- * historyService.js's localStorage cache.
+ * the Room cache in sync so the History list/detail screens work offline.
+ *
+ * ── DECISION: network-first + Room-as-cache, NOT web's always-write-local-first ──
+ * frontend-web/src/services/historyService.js writes every new analysis to
+ * localStorage unconditionally — even for a logged-in user, even when the
+ * server DB save succeeded — and HistoryPage/AnalysisDetailPage.jsx prefer
+ * that local copy over the server whenever `token` is falsy (an unauthenticated
+ * "guest" read path). This module deliberately does NOT copy that pattern:
+ *
+ *   1. Every route in this app sits behind SplashScreen's login gate — same
+ *      as the web app's own ProtectedRoute, which guards `/`, `/history`, and
+ *      `/history/:id` too. So on the WEB app just as much as here, an
+ *      unauthenticated user can never actually reach these screens through
+ *      normal navigation; historyService.js's `if (token) … else local`
+ *      branches on the web are a defensive fallback for a token going stale
+ *      mid-session, not a first-class guest-browsing feature. There's no
+ *      supported "guest with local-only history" flow to port.
+ *   2. This app already gets the resilience guarantee web's dual-write exists
+ *      for — never lose a diagnosis the user is looking at, even if the
+ *      server DB write silently failed — via AnalysisRepository, which
+ *      caches every *successful* /api/analyze response into Room regardless
+ *      of whether the backend returned an `analysisId` (see
+ *      AnalysisEntity.fromAnalysisResponse's `isPendingSync` flag). What we
+ *      don't do is treat that local cache as authoritative once a network
+ *      read succeeds — the read methods below always try the server first
+ *      and only fall back to the cached Room row when the request itself
+ *      fails (see getAnalysis()), so a stale local row never shadows a fresh
+ *      server one for a signed-in user.
+ *   3. Room already has no cap and no eviction-notice UX to build (unlike
+ *      localStorage's 50-entry MAX_ENTRIES + one-time "archived" toast on the
+ *      web) — there is no equivalent overflow scenario to defend against
+ *      here, so adopting web's always-write-first model would add
+ *      complexity (two sources of truth to reconcile on every read) without
+ *      solving a problem this app actually has.
+ *
+ * In short: network-first with a Room fallback for offline/failure cases —
+ * not local-first with a server override — is the deliberate choice here.
  */
 @Singleton
 class HistoryRepository @Inject constructor(
@@ -75,6 +109,28 @@ class HistoryRepository @Inject constructor(
                 ApiResult.Success(Unit)
             }
             is ApiResult.Error -> result
+        }
+    }
+
+    /**
+     * Deletes every given id server-side (best-effort, one id's failure
+     * doesn't block the rest — mirrors historyService.js's
+     * `Promise.allSettled` on the web) and always clears the local Room
+     * cache afterwards, matching HistoryPage.jsx's "Clear All" button.
+     */
+    suspend fun clearAllHistory(ids: List<String>): ApiResult<Unit> {
+        var anyFailure = false
+        for (id in ids) {
+            when (executor.execute { api.deleteAnalysis(id) }) {
+                is ApiResult.Success -> Unit
+                is ApiResult.Error -> anyFailure = true
+            }
+        }
+        runCatching { analysisDao.clearAll() }
+        return if (anyFailure) {
+            ApiResult.Error("Some analyses could not be deleted from the server, but local history was cleared.")
+        } else {
+            ApiResult.Success(Unit)
         }
     }
 

@@ -18,6 +18,17 @@ data class AuthUiState(
     val errorMessage: String? = null,
     val infoMessage: String? = null,
     val actionSucceeded: Boolean = false,
+    // ── Change-Password (Profile screen) — deliberately separate from the
+    // fields above. Profile's "Change Password" row reuses this same
+    // forgotPassword() API call but, unlike the standalone Forgot Password
+    // screen, it fires inline without navigating away — sharing isLoading/
+    // errorMessage/actionSucceeded with it would make an in-flight Change
+    // Password request also disable/blank the unrelated Save Changes button
+    // and its error banner on the same screen. Mirrors ProfilePage.jsx on
+    // the web, which keeps its own local `sendingReset` state completely
+    // separate from EditProfilePage's error state (a different route there).
+    val isSendingPasswordReset: Boolean = false,
+    val passwordResetMessage: String? = null,
 )
 
 @HiltViewModel
@@ -126,6 +137,31 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             authRepository.logout()
         }
+    }
+
+    /**
+     * "Change Password" on Profile — reuses POST /api/auth/forgot-password
+     * with the logged-in user's own email, exactly like ProfilePage.jsx's
+     * handleChangePassword(): a single tap, no navigation, no email to type.
+     */
+    fun sendPasswordResetForCurrentUser() {
+        val email = currentUser.value?.email
+        if (email.isNullOrBlank()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSendingPasswordReset = true, passwordResetMessage = null) }
+            when (authRepository.forgotPassword(email)) {
+                is ApiResult.Success -> _uiState.update {
+                    it.copy(isSendingPasswordReset = false, passwordResetMessage = "Password reset link sent to your email!")
+                }
+                is ApiResult.Error -> _uiState.update {
+                    it.copy(isSendingPasswordReset = false, passwordResetMessage = "Could not send reset email. Try again.")
+                }
+            }
+        }
+    }
+
+    fun consumePasswordResetMessage() {
+        _uiState.update { it.copy(passwordResetMessage = null) }
     }
 
     fun consumeError() {

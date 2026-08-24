@@ -61,6 +61,7 @@ fun DoctorResultScreen(
     analysisId: String?,
     severity: String?,
     onBack: () -> Unit,
+    onNewAnalysis: () -> Unit,
     doctorViewModel: DoctorViewModel = hiltViewModel(),
     historyViewModel: HistoryViewModel = hiltViewModel(),
 ) {
@@ -170,6 +171,7 @@ fun DoctorResultScreen(
                         onCall = { phone -> dialPhone(context, phone) },
                         onViewMap = { url -> openUrl(context, url) },
                         onDirections = { url -> openUrl(context, url) },
+                        onOpenWebsite = { url -> openUrl(context, url) },
                     )
 
                     if (analysisId != null) {
@@ -185,6 +187,15 @@ fun DoctorResultScreen(
                             }
                             Text(" Download PDF Report")
                         }
+                    }
+
+                    // Matches the "🔄 New Analysis" link on the web's result
+                    // stage (BestMatchCard.jsx) — a full reset back to Home.
+                    androidx.compose.material3.TextButton(
+                        onClick = onNewAnalysis,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("New Analysis")
                     }
                 }
 

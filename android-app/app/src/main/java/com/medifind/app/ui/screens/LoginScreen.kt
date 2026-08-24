@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -24,15 +25,27 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.medifind.app.R
 import com.medifind.app.ui.components.MedicalDisclaimer
+import com.medifind.app.ui.util.isValidEmail
 import com.medifind.app.viewmodel.AuthViewModel
 
+/**
+ * Matches frontend-web's LoginPage.jsx: client-side validation runs on submit
+ * only (not live per-keystroke) and blocks the API call entirely when it
+ * fails — the same two rules web enforces ("Enter a valid email address." /
+ * "Password is required."). Server-side errors (wrong credentials, network
+ * failure, …) still surface via AuthViewModel.uiState.errorMessage exactly
+ * as before.
+ */
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
@@ -42,13 +55,26 @@ fun LoginScreen(
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var emailError by remember { mutableStateOf<String?>(null) }
+    var passwordError by remember { mutableStateOf<String?>(null) }
 
     val uiState by authViewModel.uiState.collectAsState()
+    val passwordFocus = remember { FocusRequester() }
 
     LaunchedEffect(uiState.actionSucceeded) {
         if (uiState.actionSucceeded) {
             authViewModel.consumeActionSucceeded()
             onLoginSuccess()
+        }
+    }
+
+    fun validateAndSubmit() {
+        val eError = if (!isValidEmail(email)) "Enter a valid email address." else null
+        val pError = if (password.isEmpty()) "Password is required." else null
+        emailError = eError
+        passwordError = pError
+        if (eError == null && pError == null) {
+            authViewModel.login(email.trim(), password)
         }
     }
 
@@ -68,20 +94,26 @@ fun LoginScreen(
 
             OutlinedTextField(
                 value = email,
-                onValueChange = { email = it; authViewModel.consumeError() },
+                onValueChange = { email = it; emailError = null; authViewModel.consumeError() },
                 label = { Text(stringResource(R.string.email_label)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                isError = emailError != null,
+                supportingText = emailError?.let { { Text(it) } },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { passwordFocus.requestFocus() }),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
 
             OutlinedTextField(
                 value = password,
-                onValueChange = { password = it; authViewModel.consumeError() },
+                onValueChange = { password = it; passwordError = null; authViewModel.consumeError() },
                 label = { Text(stringResource(R.string.password_label)) },
+                isError = passwordError != null,
+                supportingText = passwordError?.let { { Text(it) } },
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { validateAndSubmit() }),
+                modifier = Modifier.fillMaxWidth().focusRequester(passwordFocus),
                 singleLine = true,
             )
 
@@ -90,7 +122,7 @@ fun LoginScreen(
             }
 
             Button(
-                onClick = { authViewModel.login(email, password) },
+                onClick = { validateAndSubmit() },
                 enabled = !uiState.isLoading,
                 modifier = Modifier.fillMaxWidth(),
             ) {

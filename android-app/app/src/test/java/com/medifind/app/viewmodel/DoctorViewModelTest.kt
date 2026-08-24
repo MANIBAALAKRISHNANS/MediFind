@@ -6,6 +6,7 @@ import com.medifind.app.data.api.ApiResult
 import com.medifind.app.data.api.models.BestMatch
 import com.medifind.app.data.api.models.DoctorResponse
 import com.medifind.app.data.api.models.ScoreBreakdown
+import com.medifind.app.data.repository.CityGeocoder
 import com.medifind.app.data.repository.DoctorRepository
 import com.medifind.app.data.repository.LatLng
 import com.medifind.app.data.repository.LocationProvider
@@ -26,6 +27,7 @@ class DoctorViewModelTest {
 
     private val doctorRepository: DoctorRepository = mockk()
     private val locationProvider: LocationProvider = mockk()
+    private val cityGeocoder: CityGeocoder = mockk()
     private lateinit var viewModel: DoctorViewModel
 
     private val fakeMatch = BestMatch(
@@ -49,7 +51,7 @@ class DoctorViewModelTest {
 
     @Before
     fun setup() {
-        viewModel = DoctorViewModel(doctorRepository, locationProvider)
+        viewModel = DoctorViewModel(doctorRepository, locationProvider, cityGeocoder)
     }
 
     @Test
@@ -93,7 +95,9 @@ class DoctorViewModelTest {
 
         val state = viewModel.uiState.value
         assertThat(state.bestMatch).isNull()
-        assertThat(state.errorMessage).isEqualTo("No medical facilities found nearby. Try a larger area.")
+        assertThat(state.errorMessage).isEqualTo(
+            "No nearby facilities found. Try entering a different location or searching for a broader specialty.",
+        )
         assertThat(state.hasSearched).isTrue()
     }
 

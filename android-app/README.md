@@ -48,3 +48,34 @@ that value in `app/build.gradle.kts` before shipping a release build.
 ```bash
 ./gradlew test          # unit tests (viewmodel/ + repository/)
 ```
+
+## Follow-up: verified App Links for password reset
+
+`ui/screens/ResetPasswordScreen.kt` is reached via an App Link
+(`AndroidManifest.xml`'s `<intent-filter android:autoVerify="true">` on
+`MainActivity`, matching `https://<backend host>/reset-password`, the same
+URL the password-reset email already links to — see `backend/app.js`'s
+`GET /reset-password` handler and `FRONTEND_URL` in `render.yaml`).
+
+`autoVerify` alone isn't enough for Android to open the link directly in the
+app instead of a browser — the backend host must also serve
+`/.well-known/assetlinks.json` listing this app's **release** signing
+certificate's SHA-256 fingerprint:
+
+```json
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.medifind.app",
+    "sha256_cert_fingerprints": ["<release keystore SHA-256, from `keytool -list -v -keystore <release.jks>`>"]
+  }
+}]
+```
+
+That file has to be hosted on the backend (outside this module) once a
+release keystore exists, so it isn't included here. Until it's published,
+the OS still offers "MediFind" in the share/open-with chooser for the link
+(the intent-filter is valid and `BROWSABLE` either way) — and
+`ResetPasswordScreen` has a manual paste-the-link/code fallback for whenever
+the user ends up in a browser instead.

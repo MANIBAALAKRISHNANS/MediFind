@@ -51,7 +51,7 @@ class AnalysisViewModelTest {
         advanceUntilIdle()
 
         assertThat(viewModel.uiState.value.errorMessage)
-            .isEqualTo("Symptoms must be between 10 and 2000 characters.")
+            .isEqualTo("Symptoms must be between 10 and 1000 characters.")
         io.mockk.coVerify(exactly = 0) { analysisRepository.analyzeSymptoms(any(), any(), any()) }
     }
 

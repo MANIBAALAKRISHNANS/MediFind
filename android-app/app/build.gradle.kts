@@ -30,6 +30,13 @@ android {
             // 10.0.2.2 routes to the host machine's localhost from the Android emulator.
             buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:5000/\"")
             applicationIdSuffix = ".debug"
+            // Matches API_BASE_URL's host above — see the reset-password
+            // <intent-filter> in AndroidManifest.xml. Not independently
+            // verifiable (a private IP can't serve assetlinks.json), but kept
+            // in sync with API_BASE_URL for `adb shell am start -a
+            // android.intent.action.VIEW -d "https://10.0.2.2/reset-password?..."`
+            // manual testing against a locally-run backend.
+            manifestPlaceholders["deepLinkHost"] = "10.0.2.2"
         }
         release {
             isMinifyEnabled = true
@@ -40,6 +47,10 @@ android {
             )
             // Replace with the deployed backend URL (e.g. Render) before shipping.
             buildConfigField("String", "API_BASE_URL", "\"https://medifind-api.onrender.com/\"")
+            // Must match API_BASE_URL's host above and the backend's
+            // FRONTEND_URL env var (see render.yaml) — that's the host the
+            // password-reset email actually links to.
+            manifestPlaceholders["deepLinkHost"] = "medifind-api.onrender.com"
         }
     }
 

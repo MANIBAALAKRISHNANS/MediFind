@@ -87,6 +87,36 @@ class AuthViewModelTest {
     }
 
     @Test
+    fun `sendPasswordResetForCurrentUser reuses forgot-password with the logged-in user's own email`() = runTest {
+        every { authRepository.currentUser } returns MutableStateFlow(fakeUser)
+        coEvery { authRepository.forgotPassword("asha@example.com") } returns ApiResult.Success("If an account exists…")
+        viewModel = AuthViewModel(authRepository)
+
+        viewModel.sendPasswordResetForCurrentUser()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.isSendingPasswordReset).isFalse()
+        assertThat(state.passwordResetMessage).isEqualTo("Password reset link sent to your email!")
+        // Must not touch the shared Save-Changes/login fields — see AuthUiState's doc comment.
+        assertThat(state.isLoading).isFalse()
+        assertThat(state.errorMessage).isNull()
+    }
+
+    @Test
+    fun `sendPasswordResetForCurrentUser surfaces a friendly message on failure`() = runTest {
+        every { authRepository.currentUser } returns MutableStateFlow(fakeUser)
+        coEvery { authRepository.forgotPassword(any()) } returns
+            ApiResult.Error("Unable to connect to the server.", code = "NETWORK_ERROR")
+        viewModel = AuthViewModel(authRepository)
+
+        viewModel.sendPasswordResetForCurrentUser()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.passwordResetMessage).isEqualTo("Could not send reset email. Try again.")
+    }
+
+    @Test
     fun `consumeError clears the error message`() = runTest {
         coEvery { authRepository.login(any(), any()) } returns ApiResult.Error("Invalid credentials.")
         viewModel.login("a@b.com", "wrong")

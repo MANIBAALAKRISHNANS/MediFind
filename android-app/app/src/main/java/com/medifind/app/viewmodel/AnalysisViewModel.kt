@@ -14,7 +14,13 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 private const val MIN_SYMPTOM_LENGTH = 10
-private const val MAX_SYMPTOM_LENGTH = 2000
+
+// The backend accepts up to 2000 chars (see backend/routes/analyze.js), but
+// frontend-web's SymptomInput.jsx hard-caps the textarea at 1000 — matched
+// here (and in ui/components/SymptomInputField.kt's live counter) so the two
+// clients enforce the same limit rather than Android silently allowing twice
+// as much text through.
+private const val MAX_SYMPTOM_LENGTH = 1000
 
 data class AnalysisUiState(
     val symptoms: String = "",
