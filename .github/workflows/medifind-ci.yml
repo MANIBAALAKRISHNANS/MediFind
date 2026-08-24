@@ -5,6 +5,11 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  # Lets you trigger a fresh run against the CURRENT tip of a branch on
+  # demand from the Actions tab (Run workflow button) — unlike "Re-run
+  # jobs" on an existing run, which always replays that run's original
+  # pinned commit forever, this always uses whatever main currently is.
+  workflow_dispatch:
 
 env:
   NODE_VERSION: '22.x'
