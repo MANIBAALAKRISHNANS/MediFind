@@ -35,7 +35,13 @@ test.describe('MediFind — full user flow', () => {
     await page.getByLabel('Full name').fill('E2E Test User')
     await page.getByLabel('Email address').fill(email)
     await page.getByLabel('Password', { exact: true }).fill('testpass123')
-    await page.getByLabel(/agree to medical disclaimer/i).check()
+    // force: true — this checkbox is a real <input type="checkbox" className="sr-only">
+    // sitting behind a styled sibling <div> (see SignupPage.jsx's custom-checkbox
+    // pattern); sr-only clips it to 1x1px, so Playwright's actionability check
+    // (visible + not obscured) correctly refuses a plain .check() here. The
+    // component itself is fine as-is for real users — only the test needs to
+    // bypass that check and dispatch the click directly to the input.
+    await page.getByLabel(/agree to medical disclaimer/i).check({ force: true })
     await page.getByRole('button', { name: 'Create Account' }).click()
 
     // Signup logs the user straight in and redirects home.
