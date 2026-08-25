@@ -89,7 +89,13 @@ function mapElement(el) {
     type:         tags.amenity || tags.healthcare || 'facility',
     phone:        tags.phone   || tags['contact:phone']   || null,
     website:      tags.website || tags['contact:website'] || null,
-    address:      [tags['addr:street'], tags['addr:city']].filter(Boolean).join(', ') || null,
+    // Some Indian hospital nodes carry a single combined addr:full tag
+    // instead of separate addr:street/addr:city — fall back to it so this
+    // facility's address (and any specialty-disqualifying text in it, e.g.
+    // "...Dental College Campus...") isn't silently dropped just because
+    // it's not split into the structured tags. Order matters: prefer the
+    // structured street+city pair when both exist, addr:full otherwise.
+    address:      [tags['addr:street'], tags['addr:city']].filter(Boolean).join(', ') || tags['addr:full'] || null,
     openingHours: tags.opening_hours || null,
     speciality:   tags.healthcare_speciality || tags.speciality || null,
     osmId:        `${el.type}/${el.id}`,
