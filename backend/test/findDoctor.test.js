@@ -14,6 +14,7 @@ import {
   TIMEOUT_RETRY_TIMEOUT_MS,
 } from '../routes/findDoctor.js'
 import { SERVER_SOCKET_TIMEOUT_MS } from '../config/timeouts.js'
+import { findBestMatch } from '../utils/ranking.js'
 
 // Coordinates are arbitrary — only freshCacheKeyPrefix() matters for test isolation.
 const LAT = 13.0827
@@ -144,5 +145,69 @@ describe('findDoctor — Overpass timeout/retry', () => {
       `worst-case Overpass retry time (${worstCaseMs}ms) must stay under the server socket timeout ` +
       `(${SERVER_SOCKET_TIMEOUT_MS}ms), or the socket gets cut before a graceful JSON error response can be sent`,
     )
+  })
+})
+
+// ── ranking.js — specialty-disqualification via address ────────────────────
+// findBestMatch() is the module's real public entry point (scoreFacility()
+// itself isn't exported), so disqualification is verified end-to-end through
+// it, the same way routes/findDoctor.js actually calls it in production.
+describe('findBestMatch — address-based specialty disqualification', () => {
+  test('a facility whose NAME is generic but whose ADDRESS names an unrelated college campus is disqualified, even when closer', () => {
+    const dentalCampusHospital = {
+      name: 'General Hospital',
+      address: 'Dr.Rai Cbcc Centre, Saveetha Dental College Campus, Velappanchavadi, Poonamallee High Road',
+      type: 'hospital',
+      lat: LAT + 0.001, // ~0.1km away — closer than the alternative below
+      lng: LNG,
+      phone: null,
+      openingHours: null,
+      speciality: null,
+      osmId: 'node/1',
+    }
+    const plainAlternative = {
+      name: 'City Neuro Care Hospital', // 'neuro' — genuine positive match for Neurologist
+      address: 'Anna Salai',
+      type: 'hospital',
+      lat: LAT + 0.02, // ~2.2km away — farther, but should still win
+      lng: LNG,
+      phone: '044-1234567',
+      openingHours: '24/7',
+      speciality: null,
+      osmId: 'node/2',
+    }
+
+    const result = findBestMatch([dentalCampusHospital, plainAlternative], 'Neurologist', LAT, LNG)
+
+    assert.equal(
+      result.bestMatch.name, 'City Neuro Care Hospital',
+      'the dental-campus hospital must be excluded despite being closer — its generic name alone would otherwise win on proximity',
+    )
+  })
+
+  test('regression: startsWord() must NOT let the ENT negative keyword collide with "Government"/"Centre" in real hospital names', () => {
+    // Real facility names from a live Chennai Overpass query — both were
+    // correct matches before; a naive unanchored .includes() for negative
+    // keywords would wrongly disqualify both (see startsWord()'s doc comment
+    // in ranking.js: 'ent' is a literal substring of "government"/"centre").
+    const governmentHospital = {
+      name: 'Rajiv Gandhi Government General Hospital', // no cardio-positive keyword
+      address: null, type: 'hospital', lat: LAT + 0.005, lng: LNG,
+      phone: null, openingHours: null, speciality: null, osmId: 'node/3',
+    }
+    const heartCentre = {
+      name: 'Chennai Heart Centre', // genuine positive match ('heart') for Cardiologist
+      address: null, type: 'hospital', lat: LAT + 0.03, lng: LNG,
+      phone: null, openingHours: null, speciality: null, osmId: 'node/4',
+    }
+
+    const result = findBestMatch([governmentHospital, heartCentre], 'Cardiologist', LAT, LNG)
+
+    // Chennai Heart Centre should win on its genuine specialty match — but
+    // critically, the government hospital must not have been silently
+    // disqualified along the way; it should still be a viable (if lower-
+    // scoring) candidate, proving 'ent' inside "Government" didn't trigger.
+    assert.equal(result.bestMatch.name, 'Chennai Heart Centre')
+    assert.equal(result.note, null, 'a real specialty match was found — this must not fall back to "no exact match"')
   })
 })

@@ -191,6 +191,32 @@ function includesWord(haystack, needle) {
   return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:[^a-z0-9]|$)`, 'i').test(haystack)
 }
 
+// ── Word-START-safe prefix match ─────────────────────────────────────────────
+// Used for scoreFacility()'s positive/negative keyword lists, which are
+// deliberately word-STEMS/prefixes of longer clinical terms (e.g. 'cardio'
+// is meant to match inside "Cardiology", 'neuro' inside "Neurology",
+// 'hepatol' inside "Hepatology") — includesWord()'s trailing-boundary
+// requirement blocks exactly those matches, since a letter (not a boundary)
+// follows the stem. Plain, unanchored .includes() is NOT a safe substitute:
+// several of these keywords are short common-English fragments that collide
+// with ordinary words when matched with no boundary at all — most
+// importantly 'ent' (a negative keyword for 12+ specialties, meant as the
+// ENT-clinic abbreviation) is a literal substring of "Government" and
+// "Centre/Center", both extremely common in real Indian hospital names
+// (e.g. "Rajiv Gandhi Government General Hospital", "Chennai Heart Centre" —
+// both real facilities this ranking correctly matched earlier; unanchored
+// .includes() would wrongly disqualify both from cardiology/neurology/etc.
+// searches). Requiring a boundary immediately BEFORE the keyword — but not
+// after — gets both properties at once: 'cardio' still matches at the start
+// of "Cardiology" (preceded by a word boundary), while 'ent' no longer
+// matches mid-word inside "government" or "centre" (preceded by a letter,
+// not a boundary).
+function startsWord(haystack, needle) {
+  if (!haystack || !needle) return false
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(?:^|[^a-z0-9])${escaped}`, 'i').test(haystack)
+}
+
 /**
  * Resolves a free-form specialty string (however it's phrased — including the
  * Indian-English variants callers commonly use) onto one of the canonical
@@ -220,14 +246,21 @@ function haversine(lat1, lng1, lat2, lng2) {
 
 function scoreFacility(facility, canonicalSpecialty, userLat, userLng) {
   const distanceKm = haversine(userLat, userLng, facility.lat, facility.lng)
-  const nameLower = `${facility.name || ''} ${facility.speciality || ''}`.toLowerCase()
+  // address is included so a facility whose own name/speciality tags are
+  // generic (e.g. "Dr.Rai Cbcc Centre") still gets caught by a negative
+  // keyword that only shows up in its address (e.g. "...Dental College
+  // Campus...") — see the disqualification test in findDoctor.test.js.
+  const nameLower = `${facility.name || ''} ${facility.speciality || ''} ${facility.address || ''}`.toLowerCase()
   const def = canonicalSpecialty ? SPECIALTY_KEYWORDS[canonicalSpecialty] : null
   const positiveKeywords = def ? [...def.positive, ...(def.aliases ?? [])] : []
   const negativeKeywords = def ? def.negative : []
 
-  // HARD DISQUALIFY — wrong specialty
-  const hasNegative = negativeKeywords.some((k) => includesWord(nameLower, k))
-  const hasPositive = positiveKeywords.some((k) => includesWord(nameLower, k))
+  // HARD DISQUALIFY — wrong specialty. Uses startsWord(), not includesWord():
+  // these lists are word-stems/prefixes ('cardio' should match "Cardiology"),
+  // which startsWord() allows while still blocking the mid-word collisions
+  // unanchored .includes() would cause (see startsWord()'s doc comment).
+  const hasNegative = negativeKeywords.some((k) => startsWord(nameLower, k))
+  const hasPositive = positiveKeywords.some((k) => startsWord(nameLower, k))
   if (hasNegative && !hasPositive) {
     return { totalScore: 0, distanceKm, disqualified: true, reason: 'wrong-specialty' }
   }
@@ -327,7 +360,11 @@ function findBestMatch(facilities, specialty, userLat, userLng) {
     return { bestMatch: null, note: null, facilities: null }
   }
 
-  candidates.sort((a, b) => a.distanceKm - b.distanceKm)
+  // Score-based, not distance-only: a well-documented hospital slightly
+  // farther away should outrank a bare unnamed node that's marginally
+  // closer — totalScore already factors in distance (40%) alongside type
+  // and completeness, so this is strictly more informed than distance alone.
+  candidates.sort((a, b) => b.totalScore - a.totalScore)
   const allFormatted = candidates.map((f) => formatFacility(f, specialty))
 
   return {
