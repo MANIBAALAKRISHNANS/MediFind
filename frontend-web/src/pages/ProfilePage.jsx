@@ -10,8 +10,14 @@ import { format } from 'date-fns'
 
 import TopBar      from '../components/ui/TopBar.jsx'
 import Button      from '../components/ui/Button.jsx'
+import BottomSheet from '../components/ui/BottomSheet.jsx'
 import useAuthStore from '../store/authStore.js'
 import * as authService from '../services/authService.js'
+import {
+  LEGAL_LAST_UPDATED,
+  PRIVACY_POLICY_SECTIONS,
+  TERMS_OF_SERVICE_SECTIONS,
+} from '../constants/legalContent.js'
 
 function Avatar({ name }) {
   const initials = (name ?? '?')
@@ -62,12 +68,29 @@ function DisclaimerExpanded() {
   )
 }
 
+function LegalDocument({ sections }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-[11px] text-ios-gray2 italic">
+        Placeholder content for testing — not reviewed legal copy. Last updated {LEGAL_LAST_UPDATED}.
+      </p>
+      {sections.map((s) => (
+        <div key={s.heading}>
+          <p className="text-[13px] font-semibold text-ios-label mb-1">{s.heading}</p>
+          <p className="text-[13px] text-ios-gray leading-relaxed">{s.body}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function ProfilePage() {
   const navigate  = useNavigate()
   const user      = useAuthStore((s) => s.user)
   const logout    = useAuthStore((s) => s.logout)
   const [disclaimerOpen,   setDisclaimerOpen]   = useState(false)
   const [sendingReset,     setSendingReset]      = useState(false)
+  const [legalDoc,         setLegalDoc]          = useState(null) // 'privacy' | 'terms' | null
 
   async function handleChangePassword() {
     if (!user?.email) return
@@ -145,8 +168,8 @@ export default function ProfilePage() {
           <div>
             <p className="ios-section-header">About</p>
             <div className="ios-card overflow-hidden">
-              <ListRow icon={Shield}   label="Privacy Policy"   onPress={() => {}} />
-              <ListRow icon={FileText} label="Terms of Service" onPress={() => {}} />
+              <ListRow icon={Shield}   label="Privacy Policy"   onPress={() => setLegalDoc('privacy')} />
+              <ListRow icon={FileText} label="Terms of Service" onPress={() => setLegalDoc('terms')} />
               <div>
                 <ListRow
                   icon={AlertCircle}
@@ -204,6 +227,14 @@ export default function ProfilePage() {
           </Button>
         </motion.div>
       </main>
+
+      <BottomSheet
+        open={legalDoc != null}
+        onClose={() => setLegalDoc(null)}
+        title={legalDoc === 'privacy' ? 'Privacy Policy' : 'Terms of Service'}
+      >
+        <LegalDocument sections={legalDoc === 'privacy' ? PRIVACY_POLICY_SECTIONS : TERMS_OF_SERVICE_SECTIONS} />
+      </BottomSheet>
     </div>
   )
 }

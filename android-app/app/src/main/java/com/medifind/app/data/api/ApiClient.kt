@@ -52,9 +52,9 @@ class AuthInterceptor(private val tokenManager: TokenManager) : Interceptor {
 object ApiClient {
 
     private const val CONNECT_TIMEOUT_SECONDS = 30L
-    // The backend's Gemini cascade has a hard 22s deadline (see
-    // backend/routes/analyze.js GEMINI_TOTAL_DEADLINE_MS) plus DB/network
-    // overhead — 35s keeps a comfortable margin without hanging forever.
+    // The backend's local rule-based diagnosis engine (see
+    // backend/routes/analyze.js) plus DB/network overhead should complete
+    // well within this — 35s keeps a comfortable margin without hanging forever.
     private const val READ_TIMEOUT_SECONDS = 35L
     private const val WRITE_TIMEOUT_SECONDS = 30L
 

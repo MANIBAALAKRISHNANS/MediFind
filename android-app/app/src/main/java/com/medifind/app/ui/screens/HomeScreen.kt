@@ -127,7 +127,7 @@ private fun Dashboard(
                         modifier = Modifier.padding(top = 6.dp),
                     )
                     Text(
-                        "Powered by Gemini AI · Takes ~10 seconds",
+                        "AI-powered analysis · Takes ~10 seconds",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
                         modifier = Modifier.padding(top = 8.dp),

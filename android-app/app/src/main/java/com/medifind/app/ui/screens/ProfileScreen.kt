@@ -57,7 +57,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.medifind.app.BuildConfig
 import com.medifind.app.R
+import com.medifind.app.ui.components.LegalDocumentDialog
 import com.medifind.app.ui.components.MedicalDisclaimer
+import com.medifind.app.ui.components.PRIVACY_POLICY_SECTIONS
+import com.medifind.app.ui.components.TERMS_OF_SERVICE_SECTIONS
 import com.medifind.app.ui.util.sendEmail
 import com.medifind.app.viewmodel.AuthViewModel
 import kotlinx.coroutines.launch
@@ -179,6 +182,7 @@ fun ProfileScreen(
     var name by remember(currentUser) { mutableStateOf(currentUser?.name ?: "") }
     var email by remember(currentUser) { mutableStateOf(currentUser?.email ?: "") }
     var disclaimerOpen by remember { mutableStateOf(false) }
+    var legalDocOpen by remember { mutableStateOf<String?>(null) } // "privacy" | "terms" | null
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -294,11 +298,8 @@ fun ProfileScreen(
 
             // ── About section — matches ProfilePage.jsx's "About" card ──
             SectionHeader("About")
-            // Intentional no-ops — mirrors the web app's Privacy Policy / Terms
-            // of Service rows, which are unimplemented placeholders there too
-            // (onPress={() => {}}); not a bug, ported as-is.
-            ProfileRow(icon = Icons.Default.Shield, label = "Privacy Policy", onClick = {})
-            ProfileRow(icon = Icons.Default.Description, label = "Terms of Service", onClick = {})
+            ProfileRow(icon = Icons.Default.Shield, label = "Privacy Policy", onClick = { legalDocOpen = "privacy" })
+            ProfileRow(icon = Icons.Default.Description, label = "Terms of Service", onClick = { legalDocOpen = "terms" })
             ProfileRow(
                 icon = Icons.Default.WarningAmber,
                 label = "Medical Disclaimer",
@@ -339,5 +340,13 @@ fun ProfileScreen(
 
             MedicalDisclaimer(modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
         }
+    }
+
+    legalDocOpen?.let { doc ->
+        LegalDocumentDialog(
+            title = if (doc == "privacy") "Privacy Policy" else "Terms of Service",
+            sections = if (doc == "privacy") PRIVACY_POLICY_SECTIONS else TERMS_OF_SERVICE_SECTIONS,
+            onDismiss = { legalDocOpen = null },
+        )
     }
 }

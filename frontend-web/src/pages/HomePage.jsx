@@ -233,7 +233,7 @@ function Dashboard({ user, onAnalyze }) {
               Analyze Symptoms
             </p>
             <p className="text-white/60 text-xs mt-2.5">
-              Powered by Gemini AI · Takes ~10 seconds
+              AI-powered analysis · Takes ~10 seconds
             </p>
           </div>
           <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center shrink-0">
@@ -370,7 +370,7 @@ export default function HomePage() {
     dispatch({ type: 'RESET' })
   }
 
-  // ── analyzing → Gemini AI ─────────────────────────────────────────────────
+  // ── analyzing → backend diagnosis ─────────────────────────────────────────
   useEffect(() => {
     if (stage !== 'analyzing') return
     let cancelled = false

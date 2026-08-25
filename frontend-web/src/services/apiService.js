@@ -4,7 +4,7 @@ import client from '../api/client.js'
 const NOMINATIM_BASE = 'https://nominatim.openstreetmap.org'
 
 /**
- * Analyze symptoms with Gemini AI.
+ * Analyze symptoms via the backend diagnosis engine.
  * Returns the diagnosis plus the persisted analysisId.
  * @returns {{ disease, specialty, severity, urgency, description, recommendations, redFlags, analysisId }}
  */

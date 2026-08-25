@@ -46,7 +46,7 @@ function buildHTML(diagnosis, symptoms, bestMatch) {
   const sev     = severityColor(d.severity)
   const urg     = urgencyLabel(d.urgency)
   const conf    = Math.min(100, d.confidence ?? 50)
-  const source  = d.source === 'gemini' ? 'Gemini AI (Cloud)' : 'MediFind Local Engine'
+  const source  = 'MediFind Local Engine'
   const disease = escHtml(d.disease || 'Unspecified Condition')
   const spec    = capitalize(d.specialty || 'General Physician')
 
