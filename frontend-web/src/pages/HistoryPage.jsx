@@ -120,6 +120,7 @@ export default function HistoryPage() {
             type="button"
             onClick={() => navigate('/')}
             className="flex items-center gap-1 text-ios-blue font-medium text-[15px]"
+            aria-label="Back"
           >
             <ArrowLeft size={18} />
           </button>

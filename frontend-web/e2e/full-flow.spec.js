@@ -89,11 +89,30 @@ test.describe('MediFind — full user flow', () => {
 
     // ── History shows the analysis just created ─────────────────────────────
     await page.getByRole('button', { name: 'Open menu' }).click()
-    await page.getByRole('link', { name: 'History' }).click()
+    // role=button, not link: SideDrawer.jsx's NAV_ITEMS render as
+    // <button onClick={() => handleNav(path)}>, so no anchor named "History"
+    // exists anywhere in the app for a role=link locator to ever resolve to.
+    // exact: true — Playwright matches an accessible name as a *substring* by
+    // default, and HomePage's TopBar shortcut is aria-label="View history",
+    // which contains "History". Without exact the locator resolves to two
+    // elements and fails strict mode.
+    await page.getByRole('button', { name: 'History', exact: true }).click()
     await expect(page).toHaveURL(/\/history/)
-    await expect(page.getByText(/fever/i).first()).toBeVisible()
+    // A history row renders the *diagnosed disease*, date, severity badge and
+    // matched facility — never the raw symptom text (see HistoryPage.jsx's list
+    // item). The rule engine maps this test's symptom string to "Strep Throat",
+    // so /fever/ would assert against text the page never contains. Assert the
+    // record actually landed instead: the counter above the list only renders
+    // when total > 0, and the empty state replaces the list entirely when it's 0.
+    await expect(page.getByText(/^\d+ records?$/)).toBeVisible()
 
     // ── Logout ───────────────────────────────────────────────────────────
+    // SideDrawer — and therefore "Sign Out" — is mounted by HomePage alone;
+    // /history has no "Open menu" button at all. Go Home via the TopBar back
+    // button first (aria-label added in HistoryPage.jsx — it was an icon-only
+    // button with no accessible name, unreachable by any role-based locator).
+    await page.getByRole('button', { name: 'Back' }).click()
+    await expect(page).toHaveURL('/')
     await page.getByRole('button', { name: 'Open menu' }).click()
     await page.getByRole('button', { name: 'Sign Out' }).click()
     await expect(page).toHaveURL(/\/login/)
