@@ -604,10 +604,6 @@ function buildHTML(diagnosis, symptoms, bestMatch) {
         ${bm.distanceKm != null ? `<div class="facility-dist">&#128205; ${bm.distanceKm} km away</div>` : ''}
         <div class="facility-grid">
           <div class="facility-item">
-            <label>Phone</label>
-            <span>${escHtml(bm.phone || 'Not listed')}</span>
-          </div>
-          <div class="facility-item">
             <label>Address</label>
             <span>${escHtml(bm.address || 'Not listed')}</span>
           </div>

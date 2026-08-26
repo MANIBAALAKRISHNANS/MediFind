@@ -192,12 +192,6 @@ fun HistoryDetailScreen(
                     analysis.matchAddress?.let { DetailRow("Address", it) }
                     analysis.matchDistanceKm?.let { DetailRow("Distance", "$it km") }
 
-                    if (analysis.matchPhone != null) {
-                        OutlinedButton(
-                            onClick = { dialPhone(context, analysis.matchPhone) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Call ${analysis.matchPhone}") }
-                    }
                     if (analysis.matchOsmMapUrl != null) {
                         OutlinedButton(
                             onClick = { openUrl(context, analysis.matchOsmMapUrl) },

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Sparkles, MapPin, Phone, Globe, Map, Navigation,
+  Sparkles, MapPin, Globe, Map, Navigation,
   ChevronDown, ChevronUp, Clock, Download, RotateCcw,
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
@@ -43,7 +43,7 @@ export default function BestMatchCard({ bestMatch, note, analysisId, diagnosis, 
   if (!bestMatch) return null
 
   const {
-    name, address, phone, website, type = 'facility',
+    name, address, website, type = 'facility',
     distanceKm, openingHours, osmMapUrl, directionsUrl,
     matchScore = 0, scoreBreakdown = {}, recommendedSpecialty, source,
   } = bestMatch
@@ -129,14 +129,6 @@ export default function BestMatchCard({ bestMatch, note, analysisId, diagnosis, 
             </p>
           )}
 
-          {/* Phone */}
-          {phone && (
-            <p className="text-ios-secondLabel text-sm flex items-center gap-2">
-              <Phone size={14} className="shrink-0 text-ios-gray2" />
-              {phone}
-            </p>
-          )}
-
           {/* Match score bar */}
           <div className="rounded-ios bg-ios-bg p-4 space-y-2">
             <div className="flex justify-between items-center">
@@ -185,20 +177,6 @@ export default function BestMatchCard({ bestMatch, note, analysisId, diagnosis, 
 
           {/* Action buttons */}
           <div className="flex flex-col gap-2.5 pt-1">
-            {/* Call */}
-            {phone ? (
-              <a
-                href={`tel:${phone}`}
-                className="ios-button-primary w-full"
-              >
-                📞 Call to Book
-              </a>
-            ) : (
-              <div className="w-full py-3.5 rounded-ios bg-ios-bg text-ios-gray text-sm font-medium text-center">
-                📞 Phone not listed — visit facility
-              </div>
-            )}
-
             {/* Map + Directions row */}
             <div className="grid grid-cols-2 gap-2.5">
               {osmMapUrl && (

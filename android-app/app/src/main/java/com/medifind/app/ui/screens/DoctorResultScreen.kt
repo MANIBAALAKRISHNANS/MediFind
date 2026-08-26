@@ -168,7 +168,6 @@ fun DoctorResultScreen(
                     }
                     BestMatchCard(
                         bestMatch = uiState.bestMatch!!,
-                        onCall = { phone -> dialPhone(context, phone) },
                         onViewMap = { url -> openUrl(context, url) },
                         onDirections = { url -> openUrl(context, url) },
                         onOpenWebsite = { url -> openUrl(context, url) },

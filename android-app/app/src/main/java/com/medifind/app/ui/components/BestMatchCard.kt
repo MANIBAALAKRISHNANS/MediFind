@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Language
@@ -21,7 +20,6 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -68,15 +66,14 @@ private fun ScoreRow(label: String, value: Double, max: Int, color: Color) {
 /**
  * Doctor/hospital match result — matches
  * frontend-web/src/components/BestMatchCard.jsx: name/type, distance,
- * address, opening hours, phone, the total match score plus its expandable
+ * address, opening hours, the total match score plus its expandable
  * "Why this match?" breakdown (specialty/distance/type/completeness), and
- * the Call / View Map / Directions / Website action row.
+ * the View Map / Directions / Website action row.
  */
 @Composable
 fun BestMatchCard(
     bestMatch: BestMatch,
     modifier: Modifier = Modifier,
-    onCall: (String) -> Unit = {},
     onViewMap: (String) -> Unit = {},
     onDirections: (String) -> Unit = {},
     onOpenWebsite: (String) -> Unit = {},
@@ -215,32 +212,6 @@ fun BestMatchCard(
             }
 
             Spacer(modifier = Modifier.height(14.dp))
-
-            if (bestMatch.phone != null) {
-                Button(
-                    onClick = { onCall(bestMatch.phone) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                    ),
-                ) {
-                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.height(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.call_button))
-                }
-            } else {
-                Text(
-                    "Phone not listed — visit facility",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(10.dp))
-                        .padding(12.dp),
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(

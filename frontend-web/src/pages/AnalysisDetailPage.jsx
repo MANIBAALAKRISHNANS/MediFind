@@ -20,7 +20,6 @@ function toBestMatch(a) {
   return {
     name:          a.matchName,
     address:       a.matchAddress,
-    phone:         a.matchPhone,
     website:       a.matchWebsite,
     type:          a.matchType ?? 'facility',
     distanceKm:    a.matchDistanceKm,

@@ -37,7 +37,6 @@
 
     <!-- Doctor result -->
     <string name="best_match_title">Best Match Found</string>
-    <string name="call_button">Call to Book</string>
     <string name="directions_button">Directions</string>
     <string name="view_map_button">View on Map</string>
 
