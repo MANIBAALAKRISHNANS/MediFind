@@ -12,7 +12,18 @@ const SPECIALTY_KEYWORDS = {
   'general physician': {
     aliases:  ['general practice', 'gp', 'family medicine', 'general medicine', 'family physician', 'family doctor', 'primary care physician'],
     positive: ['general', 'multi', 'medical', 'polyclinic', 'family', 'primary care', 'practice'],
-    negative: ['veterinary', 'animal'],
+    // Had only ['veterinary', 'animal'] while 24 of the 34 specialties here
+    // already excluded eye and dental — and this is the one that matters most,
+    // since the diagnosis engine defaults `specialist` to "General Physician",
+    // so it backs the majority of real searches. A single-speciality clinic
+    // still survives this if its name ALSO carries a positive ("... Eye
+    // Hospital and Medical College" keeps 'medical'), which is the intended
+    // behaviour of the hasNegative && !hasPositive rule below.
+    negative: [
+      'eye', 'optical', 'ophthalm', 'vision', 'netralaya', 'nethralaya',
+      'dental', 'maternity', 'fertility', 'veterinary', 'animal',
+      'skin', 'derma', 'cosmetic',
+    ],
   },
   'infectious disease specialist': {
     aliases:  ['infectious disease', 'infectious diseases', 'id specialist'],
@@ -96,7 +107,7 @@ const SPECIALTY_KEYWORDS = {
   },
   ophthalmologist: {
     aliases:  ['ophthalmology', 'eye specialist', 'eye doctor'],
-    positive: ['eye', 'eyes', 'vision', 'optic', 'aravind', 'sankara', 'retina', 'glaucoma', 'cataract', 'cornea', 'ocular', 'sight', 'netralaya', 'netra', 'nayan', 'drishti'],
+    positive: ['eye', 'eyes', 'vision', 'optic', 'aravind', 'sankara', 'retina', 'glaucoma', 'cataract', 'cornea', 'ocular', 'sight', 'netralaya', 'nethralaya', 'netra', 'nayan', 'drishti'],
     negative: ['dental', 'maternity', 'ortho', 'cardio', 'ent'],
   },
   gynecologist: {
@@ -117,7 +128,23 @@ const SPECIALTY_KEYWORDS = {
   'emergency medicine': {
     aliases:  ['emergency physician', 'casualty', 'trauma center', 'trauma centre', 'er', 'accident and emergency', 'emergency room'],
     positive: ['emergency', 'casualty', 'trauma', 'accident', '24 hour', '24x7', 'ambulance'],
-    negative: [],
+    // Was []. Every other specialty in this table carries negatives; emergency
+    // medicine carried none, so a single-speciality facility that cannot treat
+    // an emergency at all — an eye hospital, a dental clinic, a maternity home
+    // — stayed in the fallback list and, being nearer, was returned as the
+    // best match for someone with chest pain. Nearest is the wrong answer when
+    // the nearest place does not do emergencies.
+    // 'netralaya' is included because 'eye' misses the way many Indian eye
+    // hospitals are actually named (Sankara Nethralaya, Dr Agarwal's
+    // Netralaya). 'netra', 'nayan' and 'drishti' are left OUT deliberately —
+    // they also occur as ordinary given names in general hospital names, and
+    // a false disqualification in an emergency search is worse than a false
+    // inclusion.
+    negative: [
+      'eye', 'optical', 'ophthalm', 'vision', 'netralaya', 'nethralaya',
+      'dental', 'maternity', 'fertility', 'veterinary', 'animal',
+      'skin', 'derma', 'cosmetic',
+    ],
   },
   dentist: {
     aliases:  ['dental clinic', 'dental surgeon', 'oral health', 'dental care'],
@@ -252,7 +279,20 @@ function scoreFacility(facility, canonicalSpecialty, userLat, userLng) {
   // Campus...") — see the disqualification test in findDoctor.test.js.
   const nameLower = `${facility.name || ''} ${facility.speciality || ''} ${facility.address || ''}`.toLowerCase()
   const def = canonicalSpecialty ? SPECIALTY_KEYWORDS[canonicalSpecialty] : null
-  const positiveKeywords = def ? [...def.positive, ...(def.aliases ?? [])] : []
+  // Aliases join the positive list because facilities are often named after
+  // the phrase a patient would search for — but the two-letter ones must not,
+  // because positives are matched with startsWord(), i.e. as word PREFIXES.
+  // 'er' (emergency medicine) therefore matched the first word of "Erode
+  // Dental Care" and "Ernakulam ..." — both real Indian place names — scoring
+  // them a full 35/35 specialty match. Worse, hasPositive suppresses
+  // disqualification, so those facilities also became immune to every negative
+  // keyword: a dental clinic in Erode was returned as the best emergency
+  // match. 'gp' has the same shape. Both stay usable by normalizeSpecialty(),
+  // which matches aliases with includesWord() — whole words, both sides — and
+  // is not affected.
+  const positiveKeywords = def
+    ? [...def.positive, ...(def.aliases ?? []).filter((alias) => alias.length > 2)]
+    : []
   const negativeKeywords = def ? def.negative : []
 
   // HARD DISQUALIFY — wrong specialty. Uses startsWord(), not includesWord():
@@ -352,10 +392,33 @@ function findBestMatch(facilities, specialty, userLat, userLng) {
 
   // No exact specialty match — fall back to ALL nearby non-disqualified facilities.
   let candidates = scored.filter((f) => !f.disqualified)
+  let lastResort = false
+
   if (candidates.length === 0) {
-    // Everything got disqualified (rare) — fall back to the closest hospital, any specialty.
-    candidates = scored.filter((f) => f.type === 'hospital')
+    // Everything got disqualified — fall back to the closest hospital, any
+    // specialty. Showing a patient the one hospital in range beats showing
+    // them nothing, as long as the note says plainly that it does not match.
+    //
+    // RE-SCORED with a null specialty rather than reused as-is. A disqualified
+    // result carries totalScore: 0 and NO breakdown at all (see scoreFacility's
+    // early return), so passing those straight through produced facilities with
+    // matchScore: 0 and scoreBreakdown: undefined — a field the response
+    // contract documents, silently dropped on serialisation — and made the sort
+    // below meaningless, since every score was 0. That left this branch
+    // returning an arbitrary hospital while its own comment promised the
+    // closest. Re-scoring with a null specialty disqualifies nothing, so every
+    // candidate comes back with a real distance-weighted score and breakdown.
+    //
+    // Barely reachable until now: emergency medicine and general physician had
+    // almost no negative keywords, so "everything disqualified" could not happen
+    // for the two commonest searches. Tightening those lists is what makes this
+    // path live.
+    candidates = scored
+      .filter((f) => f.type === 'hospital')
+      .map((f) => ({ ...f, ...scoreFacility(f, null, userLat, userLng) }))
+    lastResort = candidates.length > 0
   }
+
   if (candidates.length === 0) {
     return { bestMatch: null, note: null, facilities: null }
   }
@@ -369,7 +432,12 @@ function findBestMatch(facilities, specialty, userLat, userLng) {
 
   return {
     bestMatch: allFormatted[0],
-    note: 'No exact specialty match found. Here are nearby health facilities:',
+    note: lastResort
+      // Every nearby facility was ruled out as the wrong kind of place for this
+      // specialty (an eye hospital for chest pain, say). Say so, rather than
+      // wording it like an ordinary near-miss.
+      ? `No nearby facility matches ${specialty}. These are the closest hospitals — call ahead to check they can help:`
+      : 'No exact specialty match found. Here are nearby health facilities:',
     facilities: allFormatted,
   }
 }
