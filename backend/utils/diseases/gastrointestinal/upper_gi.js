@@ -58,9 +58,17 @@ export const upper_gi = [
     category: 'Gastrointestinal - Upper',
     aliases: [],
     symptoms: {
+      // 'epigastric pain' is what a clinician writes; 'stomach pain' is what
+      // the patient types, and it normalises to 'abdominal pain' — a token
+      // this entry could not match at all, so the commonest GI complaint in
+      // the DB reached typhoid before it reached gastritis. The specific
+      // localisation moves to differentiating (where it still earns points
+      // when the user does say "upper abdomen") rather than sitting alongside
+      // 'abdominal pain' in primary, which would let one phrase match twice.
       primary: [
-        { name: 'epigastric pain', weight: 0.7, description: 'Upper abdominal discomfort' },
-        { name: 'nausea', weight: 0.5, description: '—' },
+        { name: 'abdominal pain', weight: 0.9, description: 'Usually upper abdominal, the presenting complaint' },
+        { name: 'nausea', weight: 0.8, description: '—' },
+        { name: 'indigestion', weight: 0.6, description: 'Dyspepsia — fullness, burning, or discomfort after meals' },
       ],
       secondary: [
         { name: 'bloating', weight: 0.4, description: '—' },
@@ -68,6 +76,7 @@ export const upper_gi = [
         { name: 'vomiting', weight: 0.3, description: '—' },
       ],
       differentiating: [
+        { name: 'epigastric pain', weight: 0.6, description: 'Upper-abdominal localisation, just below the breastbone' },
         { name: 'pain after eating', weight: 0.4, description: '—' },
         // Moved out of red_flags — see gi_gerd above for the same
         // reasoning: real alarm signs, not independent same-day

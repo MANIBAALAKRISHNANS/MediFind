@@ -61,6 +61,70 @@ export const viral = [
     ],
   },
 
+  // Undifferentiated viral fever. viral_influenza, bacterial_typhoid and
+  // parasitic_malaria all list 'viral_fever' in similar_diseases, but no such
+  // entry existed — a dangling cross-reference, and a real gap: this is the
+  // single commonest OPD diagnosis in India and the natural home for the
+  // single commonest thing a user types. Without it, bare "fever" was
+  // answered with Malaria, which is both wrong most of the time and alarming.
+  //
+  // Scoped deliberately narrowly so it does NOT become a catch-all that
+  // swallows the specific febrile illnesses around it: only two primaries,
+  // and the second ('chills') is chosen so that a classic flu presentation
+  // ("fever, headache, body aches") matches just ONE of them and therefore
+  // never reaches TIER 1, leaving influenza — which matches two — to win
+  // outright on tier rather than on a fragile handful of score points.
+  {
+    id: 'viral_fever',
+    name: 'Viral Fever',
+    category: 'Infectious - Viral',
+    aliases: ['viral fever', 'viral infection'],
+    symptoms: {
+      primary: [
+        { name: 'fever', weight: 1.0, description: 'Usually 100–102°F, settling over 3–5 days' },
+        { name: 'chills', weight: 0.5, description: 'Mild, without the drenching rigors of malaria' },
+      ],
+      secondary: [
+        { name: 'headache', weight: 0.5, description: '—' },
+        { name: 'myalgia', weight: 0.5, description: 'Generalised aching' },
+        { name: 'fatigue', weight: 0.4, description: 'Often outlasts the fever by a few days' },
+        { name: 'throat pain', weight: 0.3, description: '—' },
+        { name: 'loss of appetite', weight: 0.3, description: '—' },
+      ],
+      differentiating: [
+        { name: 'settles on its own', weight: 0.4, description: 'Self-limiting over 3–5 days, unlike dengue or typhoid which progress' },
+      ],
+    },
+    duration_patterns: { acute: '< 5 days', typical: '3-5 days', chronic: '> 7 days needs testing for dengue, typhoid, or malaria' },
+    severity_levels: {
+      mild: { description: 'Low-grade fever, otherwise well — rest and fluids', urgency: 'self-care' },
+      moderate: { description: 'Fever with significant aches or fatigue', urgency: 'see-doctor-soon' },
+      severe: { description: 'Fever beyond 5 days, or with bleeding, breathlessness, drowsiness, or reduced urine output', urgency: 'see-doctor-today' },
+    },
+    risk_factors: ['contact with infected person', 'crowded places', 'seasonal change'],
+    red_flags: [
+      'fever lasting more than 5 days',
+      'bleeding gums',
+      'blood in vomit',
+      'drowsiness or confusion',
+      'severe abdominal pain with fever',
+      'reduced urine output with fever',
+    ],
+    specialist: 'General Physician',
+    india_prevalence: 'high',
+    seasonal_pattern: 'monsoon',
+    age_relevance: 'all',
+    gender_relevance: 'all',
+    similar_diseases: ['viral_influenza', 'viral_dengue', 'bacterial_typhoid', 'parasitic_malaria'],
+    recommendations: [
+      'Rest and drink plenty of fluids — ORS, water, soups',
+      'Sponge with lukewarm water if the fever is high and uncomfortable',
+      'Get tested for dengue, typhoid, or malaria if the fever crosses 5 days or keeps returning',
+      'Watch for bleeding, persistent vomiting, drowsiness, or reduced urine — these need same-day care',
+      'Avoid antibiotics unless a doctor prescribes them — they do nothing for a viral fever',
+    ],
+  },
+
   {
     id: 'viral_dengue',
     name: 'Dengue Fever',
@@ -374,14 +438,20 @@ export const viral = [
     category: 'Infectious - Viral',
     aliases: ['hep a'],
     symptoms: {
+      // 'fatigue' and 'nausea' moved to secondary, 'dark urine' promoted.
+      // Hepatitis is diagnosed on jaundice and dark urine; fatigue and nausea
+      // are a non-specific prodrome shared with most of the DB. As primaries
+      // they made this entry the top answer for a bare "fatigue" or "nausea" —
+      // out-scoring anaemia and gastritis, the conditions those words actually
+      // characterise — on nothing but a high-prevalence and monsoon bonus.
       primary: [
         { name: 'jaundice', weight: 0.8, description: 'Yellowing of skin and eyes' },
-        { name: 'fatigue', weight: 0.6, description: '—' },
-        { name: 'nausea', weight: 0.6, description: '—' },
+        { name: 'dark urine', weight: 0.6, description: 'Tea-coloured, often the first thing noticed' },
       ],
       secondary: [
         { name: 'abdominal pain', weight: 0.5, description: 'Right upper quadrant' },
-        { name: 'dark urine', weight: 0.6, description: '—' },
+        { name: 'fatigue', weight: 0.6, description: '—' },
+        { name: 'nausea', weight: 0.6, description: '—' },
         { name: 'loss of appetite', weight: 0.5, description: '—' },
       ],
       differentiating: [
@@ -504,13 +574,15 @@ export const viral = [
     category: 'Infectious - Viral',
     aliases: ['hev'],
     symptoms: {
+      // Same rebalance as hepatitis A above — see the comment there.
       primary: [
         { name: 'jaundice', weight: 0.8, description: '—' },
-        { name: 'fatigue', weight: 0.6, description: '—' },
-        { name: 'nausea', weight: 0.5, description: '—' },
+        { name: 'dark urine', weight: 0.6, description: 'Tea-coloured' },
       ],
       secondary: [
         { name: 'abdominal pain', weight: 0.4, description: '—' },
+        { name: 'fatigue', weight: 0.6, description: '—' },
+        { name: 'nausea', weight: 0.5, description: '—' },
         { name: 'fever', weight: 0.4, description: 'Mild, often precedes jaundice' },
       ],
       differentiating: [
@@ -776,7 +848,7 @@ export const viral = [
       severe: { description: 'Rapid breathing, retractions, poor feeding, or bluish lips in infant', urgency: 'emergency' },
     },
     risk_factors: ['infant under 1 year', 'winter season', 'daycare exposure', 'premature birth'],
-    red_flags: ['rapid or labored breathing', 'bluish lips or face', 'poor feeding with dehydration', 'lethargy'],
+    red_flags: ['rapid or labored breathing', 'bluish lips or face', 'poor feeding with dehydration', 'unusually drowsy or hard to wake'],
     specialist: 'Pediatrician',
     india_prevalence: 'moderate',
     seasonal_pattern: 'winter',

@@ -30,12 +30,46 @@ export function detectNegations(rawText) {
     if (!phrase) continue
     const firstWord = phrase.split(' ')[0]
     if (STOPWORDS.has(firstWord)) continue
+    if (isAbsenceSymptom(match[0])) continue
 
     const normalized = normalize(phrase)
     if (normalized) negated.add(normalized)
   }
 
   return [...negated]
+}
+
+/**
+ * Distinguishes "no appetite" (a SYMPTOM — anorexia) from "no fever" (a
+ * denial). Both are a negator followed by a body word, so the regex above
+ * cannot tell them apart, and treating the first as a denial was actively
+ * harmful: "no appetite" cancelled 'loss of appetite' everywhere it appears,
+ * so the engine matched nothing at all and answered "Unspecified Condition"
+ * to a perfectly clear complaint. Same for "no energy", "no motion", "not
+ * eating" — all of them idioms where the negation is part of the symptom's
+ * name, and all of them phrases the synonym map already knows.
+ *
+ * That is exactly what this uses as the test, rather than a hand-kept list:
+ * normalise the WHOLE negated phrase, and normalise the negator plus the
+ * phrase separately. If the two agree ("no loose motions" → "no diarrhea"
+ * either way) the negator is doing its ordinary job and this is a real
+ * denial. If they disagree ("no appetite" → "loss of appetite" as a whole,
+ * but "no appetite" piecewise) the synonym map has recognised the negator as
+ * part of a symptom name, and it must not be treated as a denial.
+ */
+function isAbsenceSymptom(fullMatch) {
+  const whole = normalize(fullMatch)
+  if (!whole) return false
+
+  const trimmed = String(fullMatch).trim().toLowerCase()
+  const firstSpace = trimmed.indexOf(' ')
+  if (firstSpace < 0) return false
+
+  const negator = trimmed.slice(0, firstSpace)
+  const rest = trimmed.slice(firstSpace + 1)
+  const piecewise = `${normalize(negator)} ${normalize(rest)}`.trim()
+
+  return whole !== piecewise
 }
 
 /**

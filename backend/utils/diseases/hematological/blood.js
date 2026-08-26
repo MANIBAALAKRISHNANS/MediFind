@@ -6,7 +6,10 @@ export const blood = [
     aliases: ['anemia', 'low hemoglobin'],
     symptoms: {
       primary: [
-        { name: 'fatigue', weight: 0.75, description: '—' },
+        // The single most common way iron-deficiency anaemia presents, and by
+        // some distance the commonest deficiency in India — this is the entry
+        // a bare "tiredness" should reach.
+        { name: 'fatigue', weight: 0.8, description: '—' },
         { name: 'pallor', weight: 0.6, description: 'Pale skin, gums' },
       ],
       secondary: [

@@ -115,13 +115,31 @@ describe('POST /api/analyze (protected)', () => {
     assert.equal(res.body.code, 'INVALID_INPUT')
   })
 
-  test('symptoms under the 10-character minimum return 400', async () => {
+  // The minimum was 10 characters until single-symptom support landed — see
+  // routes/analyze.js. 'too short' (9 chars) is now a perfectly valid input,
+  // so the boundary case moved down with the limit rather than away.
+  test('symptoms under the 3-character minimum return 400', async () => {
     const res = await request(app)
       .post('/api/analyze')
       .set('Authorization', `Bearer ${token}`)
-      .send({ symptoms: 'too short' })
+      .send({ symptoms: 'ab' })
 
     assert.equal(res.status, 400)
+  })
+
+  test('a single-word symptom is accepted and never returns Unspecified Condition', async () => {
+    for (const symptoms of ['headache', 'fever', 'rash', 'back pain']) {
+      const res = await request(app)
+        .post('/api/analyze')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ symptoms })
+
+      assert.equal(res.status, 200, `"${symptoms}" should be a valid input`)
+      assert.notEqual(
+        res.body.disease, 'Unspecified Condition',
+        `"${symptoms}" fell through to the generic default: ${JSON.stringify(res.body)}`,
+      )
+    }
   })
 
   test('missing symptoms field returns 400', async () => {

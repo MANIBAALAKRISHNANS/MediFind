@@ -508,6 +508,84 @@ export const heart = [
       'Seek emergency care for fainting or breathlessness at rest',
     ],
   },
+
+  // ── Undifferentiated chest pain ───────────────────────────────────────────
+  // Bare "chest pain" had no home in the knowledge base. heart_attack requires
+  // "crushing"/"severe", angina requires "on exertion", and
+  // redflag_chest_pain_breathlessness requires the breathlessness half of its
+  // name — so the single most alarming thing a user can type on their own was
+  // landing on "Unspecified Condition, 15%, see a general physician", or worse,
+  // on an ambulance banner for a symptom they had described no other way.
+  //
+  // This entry is deliberately NOT an emergency-red-flag entry. Undifferentiated
+  // chest pain needs same-day cardiac evaluation, which is a different clinical
+  // instruction from "call 108 now" — and a triage tool that shouts EMERGENCY at
+  // every chest twinge teaches people to ignore it by the time it matters. The
+  // urgency therefore tracks what the user actually said: crushing/radiating/
+  // with sweating escalates to emergency through red_flags below, plain chest
+  // pain gets same-day, and a clearly meal-linked or occasional pattern gets
+  // prompt-but-not-same-day. localDiagnosis.js's URGENCY_FLOOR_SYMPTOMS
+  // guarantees the floor of that range regardless of how the user minimises it.
+  {
+    id: 'heart_chest_pain_cardiac',
+    name: 'Chest Pain — Possible Cardiac Cause',
+    category: 'Cardiovascular - Heart',
+    aliases: ['chest pain', 'heart pain'],
+    symptoms: {
+      // These four are the ONLY distinct tokens the synonym map produces for
+      // chest complaints — "chest ache", "pain in my chest", "heart pain",
+      // "chest is hurting" all normalise onto 'chest pain', and listing them
+      // again here would let one phrase match several primaries at once.
+      primary: [
+        { name: 'chest pain', weight: 1.0, description: 'Any pain in the chest, however the patient words it' },
+        { name: 'chest tightness', weight: 0.9, description: 'A band or squeezing sensation rather than sharp pain' },
+        { name: 'chest pressure', weight: 0.9, description: 'Weight or heaviness on the chest' },
+        { name: 'chest discomfort', weight: 0.8, description: 'Vague, hard-to-describe chest sensation' },
+      ],
+      secondary: [
+        { name: 'dyspnea', weight: 0.6, description: 'Breathlessness alongside the chest symptom' },
+        { name: 'excessive sweating', weight: 0.5, description: '—' },
+        { name: 'palpitations', weight: 0.4, description: '—' },
+        { name: 'nausea', weight: 0.3, description: '—' },
+        { name: 'dizziness', weight: 0.3, description: '—' },
+      ],
+      differentiating: [
+        { name: 'pain radiating to arm', weight: 0.7, description: 'Radiation to arm, jaw, or back raises cardiac probability sharply' },
+        { name: 'worse on exertion', weight: 0.6, description: 'Brought on by walking or climbing stairs, eased by rest' },
+      ],
+    },
+    duration_patterns: { acute: '< 1 day', typical: 'needs evaluation regardless of duration', chronic: '> 30 days recurrent still needs a cardiac opinion' },
+    severity_levels: {
+      mild: { description: 'Occasional chest discomfort, or clearly linked to meals or posture — still worth a check', urgency: 'see-doctor-soon' },
+      moderate: { description: 'Chest pain with no reassuring pattern — needs a same-day cardiac assessment (ECG)', urgency: 'see-doctor-today' },
+      severe: { description: 'Crushing or radiating pain, or pain with sweating, breathlessness, or collapse', urgency: 'emergency' },
+    },
+    risk_factors: ['smoking', 'diabetes', 'hypertension', 'high cholesterol', 'family history of heart disease', 'obesity'],
+    red_flags: [
+      'crushing chest pain',
+      'chest pain with sweating',
+      'chest pain with breathlessness',
+      'chest pain and shortness of breath',
+      'chest pain radiating to arm',
+      'chest pain radiating to my arm',
+      'chest pain radiating to jaw',
+      'chest pain at rest',
+      'chest pain lasting more than 15 minutes',
+    ],
+    specialist: 'Cardiologist',
+    india_prevalence: 'high',
+    seasonal_pattern: null,
+    age_relevance: 'all',
+    gender_relevance: 'all',
+    similar_diseases: ['heart_attack', 'heart_angina', 'gi_gerd', 'respiratory_costochondritis'],
+    recommendations: [
+      'Get an ECG today — chest pain should not be self-assessed, even when it feels minor',
+      'Stop any physical exertion and rest until you have been assessed',
+      'Call 108 immediately if the pain becomes crushing, spreads to your arm or jaw, or comes with sweating or breathlessness',
+      'Note what brings it on and what relieves it — exertion, meals, posture, or breathing — this genuinely changes the diagnosis',
+      'Tell the doctor about smoking, diabetes, blood pressure, or family heart history',
+    ],
+  },
 ]
 
 export default heart

@@ -262,13 +262,20 @@ export const soft_tissue = [
     aliases: [],
     symptoms: {
       primary: [
-        { name: 'lower back pain', weight: 0.85, description: 'Localized, worse with movement' },
+        // Was 'lower back pain', which the bare complaint "back pain" — by
+        // far the commonest way it is typed — could never match, leaving the
+        // single most common musculoskeletal presentation in the DB
+        // unreachable. 'lower back pain' moves to differentiating instead of
+        // sitting beside 'back pain' in primary: one contains the other, so
+        // as two primaries a single phrase would match both and count twice.
+        { name: 'back pain', weight: 0.8, description: 'Localized, worse with movement' },
       ],
       secondary: [
         { name: 'back stiffness', weight: 0.4, description: '—' },
         { name: 'muscle spasm', weight: 0.3, description: '—' },
       ],
       differentiating: [
+        { name: 'lower back pain', weight: 0.5, description: 'Lumbar localisation is the typical mechanical pattern' },
         { name: 'no leg radiation', weight: 0.4, description: 'Pain stays localized to the back, distinguishing from sciatica' },
       ],
     },

@@ -149,6 +149,12 @@ function adaptToApiResponse(diagnosisResult) {
   return {
     disease: primary.disease,
     confidence: Math.round(primary.confidence * 100),
+    // How much of the answer the input actually supports: 1 = full match,
+    // 2 = partial, 3 = symptom-only "possible conditions", 0 = nothing
+    // recognisable. `note` is the plain-language version for the user, and is
+    // null on a full match — there is nothing to caveat.
+    matchTier: primary.matchTier ?? 1,
+    note: primary.note ?? null,
     differentialDiagnosis,
     specialty: (primary.specialist ?? 'General Physician').toLowerCase(),
     severity: primary.severity,
@@ -179,9 +185,18 @@ function adaptToApiResponse(diagnosisResult) {
 router.post('/', requireAuth, async (req, res, next) => {
   const { symptoms, age, gender } = req.body ?? {}
 
-  if (typeof symptoms !== 'string' || symptoms.trim().length < 10 || symptoms.trim().length > 2000) {
+  // The floor was 10 characters, which rejected "headache" (8), "back pain"
+  // (9), "fever" (5) and "rash" (4) — the shortest, commonest, and most
+  // literal way a person describes what is wrong with them. It was a proxy
+  // for "did they write enough to diagnose", but the engine now answers that
+  // question properly: a sparse complaint comes back as a TIER 2/3 match
+  // carrying its own "describe more symptoms" note, instead of a 400 that
+  // tells the user their real symptom is not a valid input. 3 characters
+  // still rejects an empty box and stray keystrokes, which is all a length
+  // check can honestly do.
+  if (typeof symptoms !== 'string' || symptoms.trim().length < 3 || symptoms.trim().length > 2000) {
     return res.status(400).json({
-      error: 'Symptoms must be between 10 and 2000 characters.',
+      error: 'Symptoms must be between 3 and 2000 characters.',
       code:  'INVALID_INPUT',
     })
   }

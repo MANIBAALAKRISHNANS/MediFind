@@ -93,6 +93,13 @@ export const ear_nose_throat = [
     symptoms: {
       primary: [
         { name: 'vertigo', weight: 0.9, description: 'Brief, intense spinning triggered by head movement' },
+        // Patients say "dizziness" (or "giddiness"); clinicians write
+        // "vertigo". Kept as a separate, slightly lower-weighted primary
+        // rather than a synonym of 'vertigo' because the two are genuinely
+        // different complaints — all vertigo is dizziness, not all dizziness
+        // is vertigo — and collapsing them would hand every faint-feeling,
+        // low-BP, or anaemic patient a positional-vertigo diagnosis.
+        { name: 'dizziness', weight: 0.8, description: 'The everyday word for it — "giddiness", feeling unsteady' },
       ],
       secondary: [
         { name: 'nausea', weight: 0.4, description: 'During episodes' },

@@ -110,7 +110,7 @@ export const lower = [
       severe: { description: 'Rapid breathing, retractions, poor feeding, or bluish lips', urgency: 'emergency' },
     },
     risk_factors: ['infant under 2 years', 'winter season', 'daycare exposure', 'premature birth', 'secondhand smoke exposure'],
-    red_flags: ['rapid or labored breathing', 'bluish lips or face', 'poor feeding with dehydration', 'lethargy', 'pauses in breathing'],
+    red_flags: ['rapid or labored breathing', 'bluish lips or face', 'poor feeding with dehydration', 'unusually drowsy or hard to wake', 'pauses in breathing'],
     specialist: 'Pediatrician',
     india_prevalence: 'moderate',
     seasonal_pattern: 'winter',

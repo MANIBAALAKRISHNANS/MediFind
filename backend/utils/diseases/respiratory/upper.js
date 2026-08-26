@@ -7,7 +7,10 @@ export const upper = [
     symptoms: {
       primary: [
         { name: 'rhinorrhea', weight: 0.8, description: 'Runny nose' },
-        { name: 'cough', weight: 0.5, description: 'Mild, often dry' },
+        // 0.5 → 0.6: at 0.5 a bare "cough" reached COVID-19 before it reached
+        // the common cold, which is the overwhelmingly likelier cause and the
+        // one that does not need a test to act on.
+        { name: 'cough', weight: 0.6, description: 'Mild, often dry' },
         { name: 'nasal congestion', weight: 0.7, description: '—' },
       ],
       secondary: [

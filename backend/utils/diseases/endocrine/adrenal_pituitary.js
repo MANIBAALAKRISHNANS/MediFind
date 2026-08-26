@@ -157,7 +157,7 @@ export const adrenal_pituitary = [
       severe: { description: 'Vision changes (suggests pituitary tumor pressing on optic nerves)', urgency: 'see-doctor-today' },
     },
     risk_factors: ['pituitary tumor (usually the underlying cause)'],
-    red_flags: ['new vision changes', 'severe headache'],
+    red_flags: ['new vision changes', 'severe headache with vision changes'],
     specialist: 'Endocrinologist',
     india_prevalence: 'rare',
     seasonal_pattern: null,

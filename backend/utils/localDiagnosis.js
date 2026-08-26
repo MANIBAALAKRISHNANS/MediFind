@@ -28,22 +28,6 @@ const SEASONAL_BONUS = 5
 // realistically accrue (duration + a couple of risk factors + prevalence + season).
 const BONUS_NORMALIZER = 25
 
-// ── Short-input relaxation ──────────────────────────────────────────────────
-// A terse, 1–3 word complaint ("chest pain", "blood in stool") carries real
-// clinical signal but structurally cannot satisfy the >=2-matched-primary
-// gate below: there simply aren't enough words in the input to match two
-// symptoms. Every such input fell through to defaultDiagnosis() — the engine
-// answered "Unspecified Condition, 15%" to the exact phrasing a worried user
-// is most likely to type first. When the input is this short, one match
-// against a HIGH-weight primary symptom (a symptom its own entry treats as
-// near-defining, not incidental) plus a real total score is the strongest
-// evidence the input can physically carry, so accept it. The token gate is
-// what keeps this narrow: a longer description that still only lands one
-// primary match is a genuinely weak match and stays rejected.
-const SHORT_INPUT_MAX_TOKENS = 3
-const SHORT_INPUT_MIN_SCORE = 25
-const SHORT_INPUT_MIN_PRIMARY_WEIGHT = 0.8
-
 // ── Common-condition priority ───────────────────────────────────────────────
 // The confidence at which a match stops being "one plausible reading among
 // several" and becomes the answer. Candidates at or above it are ranked as a
@@ -60,6 +44,68 @@ const SHORT_INPUT_MIN_PRIMARY_WEIGHT = 0.8
 // belongs — in the differentials, still visible — instead of at the top.
 const COMMON_CONDITION_MIN_CONFIDENCE = 0.5
 
+// ── Three-tier matching ─────────────────────────────────────────────────────
+// TIER 1 is the strict gate above (>=2 matched primaries, score >= MIN_SCORE).
+// TIER 2 and 3 exist because the binary "qualify or fall back" design had only
+// one answer for everything below the bar — "Unspecified Condition, 15%,
+// see a general physician" — which is not a triage result, it is the engine
+// declining to answer. A user who types "headache" has told us something real;
+// answering "unspecified" is strictly worse than answering "tension headache,
+// low confidence, here is what would make this clearer". The tiers degrade the
+// CLAIM (confidence, urgency, an explicit note) rather than the ANSWER.
+const PARTIAL_MIN_PRIMARY_WEIGHT = 0.6
+const PARTIAL_MIN_SCORE = 20
+const PARTIAL_MAX_CONFIDENCE = 0.45
+const WEAK_MIN_CONFIDENCE = 0.15
+const WEAK_MAX_CONFIDENCE = 0.25
+const WEAK_CONFIDENCE_SCORE_SCALE = 20
+
+const PARTIAL_MATCH_NOTE =
+  'Based on limited symptoms — describe more symptoms for a more accurate result'
+const WEAK_MATCH_NOTE =
+  'These are possible conditions only — the symptoms given are too general to narrow down. ' +
+  'Describe more symptoms, how long they have lasted, and how severe they are.'
+
+// ── Urgency ladder ──────────────────────────────────────────────────────────
+// Ranks, not array indices, so 'see-doctor-24h' and 'see-doctor-today' can
+// share a rung: stepping down from 'see-doctor-today' lands on
+// 'see-doctor-soon' rather than sliding sideways into the near-identical
+// 'see-doctor-24h'.
+const URGENCY_RANK = {
+  'self-care': 0,
+  'see-doctor-soon': 1,
+  'see-doctor-24h': 2,
+  'see-doctor-today': 2,
+  'emergency': 3,
+}
+const URGENCY_BY_RANK = ['self-care', 'see-doctor-soon', 'see-doctor-today', 'emergency']
+
+// Symptoms that set a FLOOR under urgency no matter what qualifier surrounds
+// them. "Slight chest pain" is still chest pain: the qualifier describes how
+// it feels, not how dangerous the cause is, and a patient minimising their own
+// cardiac symptoms is the textbook presentation, not an edge case.
+const URGENCY_FLOOR_SYMPTOMS = [
+  'chest pain', 'chest tightness', 'chest pressure', 'chest discomfort',
+  'dyspnea', 'one sided weakness', 'facial droop', 'speech difficulty',
+  'loss of consciousness', 'sudden severe headache',
+]
+const URGENCY_FLOOR = 'see-doctor-today'
+// ...with ONE exception: a benign trigger ("only after eating", "heartburn-
+// like") is the qualifier that genuinely argues for reflux over a cardiac
+// cause, so it lowers the floor by a rung instead of being ignored.
+const URGENCY_FLOOR_WITH_BENIGN_TRIGGER = 'see-doctor-soon'
+
+function urgencyRank(urgency) {
+  return URGENCY_RANK[urgency] ?? 1
+}
+
+function stepUrgency(urgency, delta) {
+  if (delta === 0) return urgency
+  const rank = urgencyRank(urgency)
+  const next = Math.max(0, Math.min(URGENCY_BY_RANK.length - 1, rank + delta))
+  return URGENCY_BY_RANK[next]
+}
+
 // India seasons by month (0-indexed, matching Date#getMonth()).
 const SEASON_MONTHS = {
   monsoon: [5, 6, 7, 8],       // Jun–Sep
@@ -73,6 +119,53 @@ function isCurrentSeason(seasonalPattern) {
   const months = SEASON_MONTHS[seasonalPattern]
   if (!months) return false
   return months.includes(new Date().getMonth())
+}
+
+// ── Symptom vocabulary ──────────────────────────────────────────────────────
+// Every meaningful word used by any symptom name anywhere in the DB, built
+// once at module load. This is what decides whether an input is a medical
+// complaint at all: defaultDiagnosis() is now reserved for input with NO
+// recognisable symptom word in it (gibberish, "hello", an empty box), so
+// something has to be able to tell those apart from a real but sparse
+// complaint. Derived from the DB rather than hand-listed so it can never
+// drift out of sync with the entries it is meant to describe.
+const VOCABULARY_STOPWORDS = new Set([
+  'a', 'an', 'the', 'of', 'in', 'on', 'at', 'to', 'and', 'or', 'with', 'without',
+  'for', 'from', 'by', 'my', 'your', 'is', 'are', 'was', 'were', 'be', 'been',
+  'it', 'its', 'that', 'this', 'these', 'those', 'i', 'me', 'we', 'you', 'he',
+  'she', 'they', 'not', 'no', 'than', 'then', 'when', 'while', 'after', 'before',
+  'during', 'more', 'most', 'less', 'least', 'very', 'too', 'also', 'any', 'all',
+  'some', 'one', 'two', 'other', 'others', 'such', 'same', 'like', 'as', 'if',
+  'but', 'so', 'up', 'down', 'out', 'over', 'under', 'about', 'into', 'only',
+  'own', 'just', 'can', 'cannot', 'cant', 'will', 'would', 'should', 'could',
+  'may', 'might', 'must', 'have', 'has', 'had', 'do', 'does', 'did', 'being',
+  'both', 'each', 'few', 'because', 'due', 'per', 'often', 'usually', 'may',
+  'feel', 'feels', 'feeling', 'get', 'gets', 'getting', 'last', 'lasting',
+  'how', 'hello', 'hey', 'thanks', 'thank', 'please', 'ok', 'okay', 'yes',
+  'day', 'days', 'week', 'weeks', 'month', 'months', 'year', 'years', 'hour',
+  'hours', 'since', 'ago', 'morning', 'night', 'evening', 'today', 'yesterday',
+])
+
+const SYMPTOM_VOCABULARY = (() => {
+  const vocab = new Set()
+  for (const entry of DISEASE_DB) {
+    for (const group of ['primary', 'secondary', 'differentiating']) {
+      for (const s of entry.symptoms?.[group] ?? []) {
+        for (const word of normalize(s.name).split(' ')) {
+          if (word.length >= 3 && !VOCABULARY_STOPWORDS.has(word)) vocab.add(word)
+        }
+      }
+    }
+  }
+  return vocab
+})()
+
+/** True when the input names at least one thing the knowledge base recognises
+ * as a symptom. False for gibberish, greetings, and empty input — the only
+ * cases that may still fall through to defaultDiagnosis(). */
+function hasRecognizableSymptom(normalizedText) {
+  if (!normalizedText) return false
+  return normalizedText.split(' ').some((w) => SYMPTOM_VOCABULARY.has(w))
 }
 
 /** Word-boundary-safe substring match, run through the same normalize()
@@ -188,6 +281,35 @@ function computeConfidence(result, entry) {
   return Math.min(CONFIDENCE_CAP, Math.max(CONFIDENCE_FLOOR, raw))
 }
 
+/** How many of this entry's symptoms the input actually named, across all
+ * three groups. Distinct from `score`, which also includes prevalence,
+ * seasonal and duration bonuses that accrue with no symptom match at all. */
+function matchedSymptomCount(result) {
+  return result.matchedPrimary.length
+    + result.matchedSecondary.length
+    + result.matchedDifferentiating.length
+}
+
+/** An entry whose whole purpose is a specific dangerous combination of
+ * symptoms, not a disease in its own right. Held out of the partial/weak
+ * tiers unless one of its red flags genuinely fired. */
+function isRedFlagEntry(entry) {
+  return entry.category === 'Emergency Red Flag'
+}
+
+/** Confidence, clamped to what the matching tier can honestly claim. A
+ * partial match never reads above 45%, and a symptom-only match sits in the
+ * 15–25% band the UI renders as "possible condition" rather than an answer. */
+function tierConfidence(result, tier) {
+  if (tier === 2) return Math.min(PARTIAL_MAX_CONFIDENCE, result.confidence)
+  if (tier === 3) {
+    const spread = WEAK_MAX_CONFIDENCE - WEAK_MIN_CONFIDENCE
+    const reach = Math.min(1, result.score / WEAK_CONFIDENCE_SCORE_SCALE)
+    return WEAK_MIN_CONFIDENCE + spread * reach
+  }
+  return result.confidence
+}
+
 /** Ranking band: 1 for a confident match, 0 for a borderline one. Used as the
  * primary sort key so a confident common condition is never out-ranked on raw
  * score alone by a borderline match that happens to carry an urgent entry. */
@@ -225,15 +347,59 @@ function determineSeverity(entry, features, redFlagsMatched) {
   return 'moderate'
 }
 
+// ── Urgency adjustment ───────────────────────────────────────────────────────
+
+/**
+ * Applies the tier penalty and the user's own severity qualifiers to an
+ * entry's declared urgency, then enforces the floor for symptoms that are
+ * never safe to de-escalate.
+ *
+ * The three inputs deliberately CLAMP to a single step rather than summing:
+ * a weak-tier match described with the word "mild" is still only one notch
+ * less urgent than the entry says, not two. Stacking them was how a real
+ * complaint could walk itself all the way down to 'self-care'.
+ */
+function adjustUrgency(urgency, { tier, features, redFlagsMatched }) {
+  // A matched red flag has already forced urgency to 'emergency' by the time
+  // anything else gets a say, and nothing here is allowed to walk that back —
+  // a qualifier like "mild" or "after eating" appearing in the same sentence
+  // as a genuine warning sign describes the symptom, not the danger.
+  if (redFlagsMatched.length > 0) return urgency
+
+  let delta = 0
+  if (tier >= 2) delta -= 1
+  if (features.severity.downgrade) delta -= 1
+  if (features.severity.upgrade) delta += 1
+  delta = Math.max(-1, Math.min(1, delta))
+
+  return applyUrgencyFloor(stepUrgency(urgency, delta), features)
+}
+
+function applyUrgencyFloor(urgency, features) {
+  const hit = URGENCY_FLOOR_SYMPTOMS.some(
+    (s) => containsPhrase(features.normalizedText, s) && !isNegated(features.negatedPhrases, s),
+  )
+  if (!hit) return urgency
+
+  const floor = features.severity.benignTrigger
+    ? URGENCY_FLOOR_WITH_BENIGN_TRIGGER
+    : URGENCY_FLOOR
+  return urgencyRank(urgency) >= urgencyRank(floor) ? urgency : floor
+}
+
 // ── Result shaping ────────────────────────────────────────────────────────────
 
-function buildMatchSummary(result, confidence, severity) {
+function buildMatchSummary(result, confidence, severity, { tier = 1, features, note = null } = {}) {
   const { entry } = result
   const levelInfo = entry.severity_levels?.[severity] ?? {}
   const redFlagsMatched = result.redFlagsMatched ?? []
 
   let urgency = levelInfo.urgency ?? 'see-doctor-soon'
   let recommendations = [...(entry.recommendations ?? [])]
+
+  if (features) {
+    urgency = adjustUrgency(urgency, { tier, features, redFlagsMatched })
+  }
 
   if (redFlagsMatched.length > 0) {
     urgency = 'emergency'
@@ -264,6 +430,8 @@ function buildMatchSummary(result, confidence, severity) {
     confidence: Math.round(confidence * 100) / 100,
     severity,
     urgency,
+    matchTier: tier,
+    note,
     specialist: entry.specialist ?? 'General Physician',
     category: entry.category,
     recommendations,
@@ -284,6 +452,9 @@ function defaultDiagnosis() {
     confidence: CONFIDENCE_FLOOR,
     severity: 'mild',
     urgency: 'see-doctor-soon',
+    matchTier: 0,
+    note: 'No recognisable symptoms were found in what you described. ' +
+      'Try naming what you feel and where — for example "headache and fever for two days".',
     specialist: 'General Physician',
     category: 'General',
     recommendations: [
@@ -331,8 +502,6 @@ export function localDiagnose(symptomText, context = {}) {
     result.confidence = computeConfidence(result, result.entry)
   }
 
-  const tokenCount = features.normalizedText ? features.normalizedText.split(' ').length : 0
-
   // MIN_PRIMARY_MATCHES is a "need genuine overlap, not one coincidental
   // word" anti-false-positive gate — but 58 of 275 DB entries (e.g.
   // bone_osteoporosis: primary=['back pain'], respiratory_pharyngitis:
@@ -350,41 +519,80 @@ export function localDiagnose(symptomText, context = {}) {
     return r.score >= MIN_SCORE && r.matchedPrimary.length >= requiredPrimaryMatches
   })
 
-  // Short-input relaxation — see SHORT_INPUT_* above. Deliberately a
-  // FALLBACK, not a widening of the filter: it runs only when the strict gate
-  // admitted nobody, so it can never inject a weak single-primary candidate
-  // into an otherwise healthy result set, only replace the generic default.
-  const relaxed = []
-  if (qualifying.length === 0 && tokenCount > 0 && tokenCount <= SHORT_INPUT_MAX_TOKENS) {
-    for (const r of scored) {
-      if (r.matchedPrimary.length !== 1) continue
-      if (r.matchedPrimary[0].weight < SHORT_INPUT_MIN_PRIMARY_WEIGHT) continue
-      if (r.score < SHORT_INPUT_MIN_SCORE) continue
-      relaxed.push(r)
-    }
-  }
-
   const redFlagged = scored
     .filter((r) => r.redFlagsMatched.length > 0)
     .sort((a, b) => b.score - a.score)
 
-  if (relaxed.length > 0) {
-    // A matched red flag preempts a relaxed short-input match ONLY when the
-    // red-flagged candidate is itself a confident match. A borderline
-    // red-flag hit (the 45%-and-below band) is exactly the case that used to
-    // bury an obvious common condition under an emergency banner, so it no
-    // longer gets to override — it stays available through the safety net
-    // below for the case where nothing else qualifies at all.
-    const confidentRedFlag = redFlagged.some((r) => r.confidence >= COMMON_CONDITION_MIN_CONFIDENCE)
-    if (!confidentRedFlag) qualifying = relaxed
+  // ── Red-flag safety net, ahead of the lower tiers ─────────────────────────
+  // Order matters more than it looks. TIER 2 and 3 will happily find SOME
+  // partial match for almost any input — that is their whole job — so if they
+  // run first, they permanently shadow the safety net: "throat closing after a
+  // bee sting" came back as Viral Fever (self-care) because the word "fever"
+  // was nowhere in it but a high-prevalence monsoon entry still out-scored an
+  // anaphylaxis red flag that had genuinely fired. A matched red flag is the
+  // strongest signal this engine can produce and it is not something a
+  // consolation match is allowed to outrank.
+  const hasRedFlag = redFlagged.length > 0
+
+  // ── TIER 2 — partial match ────────────────────────────────────────────────
+  // One genuinely characteristic primary symptom, or a real-but-under-
+  // threshold total. Emergency-red-flag entries are held out unless one of
+  // their red flags actually fired: those entries are defined by a specific
+  // dangerous COMBINATION ("chest pain with breathlessness"), and letting one
+  // surface on a single generic symptom would put an ambulance banner on the
+  // word "chest pain" — the exact false positive their own authors documented
+  // when they stripped the bare terms out of red_flags.
+  let tier = 1
+  if (qualifying.length === 0 && !hasRedFlag) {
+    const partial = scored.filter((r) => {
+      if (r.matchedPrimary.length === 0) return false
+      if (isRedFlagEntry(r.entry) && r.redFlagsMatched.length === 0) return false
+      const strongestPrimary = Math.max(...r.matchedPrimary.map((s) => s.weight))
+      const strongSingle = strongestPrimary >= PARTIAL_MIN_PRIMARY_WEIGHT
+      const nearMissScore = r.score >= PARTIAL_MIN_SCORE && r.score < MIN_SCORE
+      return strongSingle || nearMissScore
+    })
+    if (partial.length > 0) {
+      qualifying = partial
+      tier = 2
+    }
+  }
+
+  // ── TIER 3 — symptom-only match ───────────────────────────────────────────
+  // The input names something the DB recognises but nothing lands anywhere
+  // near a real match. Rather than refusing to answer, offer the best-scoring
+  // candidates explicitly labelled as possibilities. Still requires a non-zero
+  // score: listing entries that matched literally nothing would be inventing
+  // a differential, not reporting one.
+  if (qualifying.length === 0 && !hasRedFlag && hasRecognizableSymptom(features.normalizedText)) {
+    const weak = scored.filter((r) => {
+      // score > 0 is NOT enough on its own. Prevalence and seasonal bonuses
+      // are added before any symptom is matched, so every high-prevalence
+      // monsoon entry carries 13 free points and would qualify here against
+      // literally any input — which is how Viral Fever became the answer to
+      // "rigid board-like abdomen". Require that the entry matched something
+      // the user actually said.
+      if (matchedSymptomCount(r) === 0) return false
+      return !(isRedFlagEntry(r.entry) && r.redFlagsMatched.length === 0)
+    })
+    if (weak.length > 0) {
+      qualifying = weak
+      tier = 3
+    }
   }
 
   // Rank by confidence band first, then raw score within the band — see
   // COMMON_CONDITION_MIN_CONFIDENCE above for why score alone was the wrong
-  // sole key.
-  qualifying.sort(
-    (a, b) => (confidenceBand(b) - confidenceBand(a)) || (b.score - a.score),
-  )
+  // sole key. Only TIER 1 uses the band: tiers 2 and 3 cap confidence below
+  // the band boundary anyway, so there the band is uniformly 0 and score is
+  // the only meaningful ordering left.
+  if (tier === 1) {
+    qualifying.sort(
+      (a, b) => (confidenceBand(b) - confidenceBand(a)) || (b.score - a.score),
+    )
+  } else {
+    qualifying.sort((a, b) => b.score - a.score)
+  }
 
   const riskFactorsMentioned = []
   if (qualifying.length > 0) {
@@ -421,18 +629,22 @@ export function localDiagnose(symptomText, context = {}) {
       const top = redFlagged[0]
       const confidence = top.confidence
       const severity = determineSeverity(top.entry, features, top.redFlagsMatched)
-      const primary = buildMatchSummary(top, confidence, severity)
+      const primary = buildMatchSummary(top, confidence, severity, { tier: 1, features })
       return { primary, differentials: [], inputParsed, disclaimer }
     }
 
+    // Reached only when the input contains no recognisable symptom word at
+    // all — see hasRecognizableSymptom() and the TIER 3 branch above.
     return { primary: defaultDiagnosis(), differentials: [], inputParsed, disclaimer }
   }
 
+  const note = tier === 2 ? PARTIAL_MATCH_NOTE : tier === 3 ? WEAK_MATCH_NOTE : null
+
   const top3 = qualifying.slice(0, 3)
   const summaries = top3.map((result) => {
-    const confidence = result.confidence
+    const confidence = tierConfidence(result, tier)
     const severity = determineSeverity(result.entry, features, result.redFlagsMatched)
-    return buildMatchSummary(result, confidence, severity)
+    return buildMatchSummary(result, confidence, severity, { tier, features, note })
   })
 
   const [primary, ...differentials] = summaries

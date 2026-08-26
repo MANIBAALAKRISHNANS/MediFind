@@ -52,7 +52,13 @@ export const headache = [
     aliases: [],
     symptoms: {
       primary: [
-        { name: 'headache', weight: 0.7, description: 'Band-like, dull pressure' },
+        // 0.7 → 0.8. This is the entry the word "headache" on its own should
+        // reach, and at 0.7 it was being out-scored for that bare input by
+        // viral meningitis (fever + headache + neck stiffness), which shares
+        // the symptom but needs two more that were never mentioned. Weighting
+        // the DB's single most common presenting complaint below the entry
+        // that literally defines it made the commonest input alarming.
+        { name: 'headache', weight: 0.8, description: 'Band-like, dull pressure' },
       ],
       secondary: [
         { name: 'neck stiffness', weight: 0.3, description: '—' },

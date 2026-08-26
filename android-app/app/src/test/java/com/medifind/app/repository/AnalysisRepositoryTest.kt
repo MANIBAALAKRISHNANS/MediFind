@@ -72,12 +72,12 @@ class AnalysisRepositoryTest {
     @Test
     fun `analyzeSymptoms on failure does not write to Room and surfaces the error`() = runTest {
         coEvery { executor.execute<AnalysisResponse>(any()) } returns
-            ApiResult.Error("Symptoms must be between 10 and 2000 characters.", code = "INVALID_INPUT")
+            ApiResult.Error("Symptoms must be between 3 and 2000 characters.", code = "INVALID_INPUT")
 
         val result = repository.analyzeSymptoms("too short")
 
         assertThat(result).isInstanceOf(ApiResult.Error::class.java)
-        assertThat((result as ApiResult.Error).message).isEqualTo("Symptoms must be between 10 and 2000 characters.")
+        assertThat((result as ApiResult.Error).message).isEqualTo("Symptoms must be between 3 and 2000 characters.")
         coVerify(exactly = 0) { analysisDao.upsert(any()) }
     }
 }
