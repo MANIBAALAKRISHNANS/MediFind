@@ -22,6 +22,11 @@
     <string name="signup_title">Create Account</string>
     <string name="email_label">Email</string>
     <string name="password_label">Password</string>
+    <!-- Content descriptions for the password visibility toggle. Wording matches
+         frontend-web's PasswordInput.jsx aria-label so both platforms read the
+         same to a screen reader. -->
+    <string name="show_password">Show password</string>
+    <string name="hide_password">Hide password</string>
     <string name="name_label">Full Name</string>
     <string name="login_button">Sign In</string>
     <string name="signup_button">Create Account</string>

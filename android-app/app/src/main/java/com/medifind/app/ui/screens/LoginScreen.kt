@@ -10,8 +10,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -31,6 +36,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.medifind.app.R
@@ -57,6 +63,11 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var emailError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
+    // Deliberately NOT rememberSaveable: a saved instance state is written to
+    // disk, so persisting this would mean a password sitting in plain text in
+    // the field after process death. It resets to hidden on recreation, which
+    // is the safe default anyway.
+    var passwordVisible by remember { mutableStateOf(false) }
 
     val uiState by authViewModel.uiState.collectAsState()
     val passwordFocus = remember { FocusRequester() }
@@ -110,7 +121,28 @@ fun LoginScreen(
                 label = { Text(stringResource(R.string.password_label)) },
                 isError = passwordError != null,
                 supportingText = passwordError?.let { { Text(it) } },
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (passwordVisible) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
+                trailingIcon = {
+                    val description = stringResource(
+                        if (passwordVisible) R.string.hide_password else R.string.show_password,
+                    )
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(
+                            imageVector = if (passwordVisible) {
+                                Icons.Filled.VisibilityOff
+                            } else {
+                                Icons.Filled.Visibility
+                            },
+                            // The label states what tapping will DO, so it has to
+                            // flip with the state, not describe the icon drawn.
+                            contentDescription = description,
+                        )
+                    }
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { validateAndSubmit() }),
                 modifier = Modifier.fillMaxWidth().focusRequester(passwordFocus),
