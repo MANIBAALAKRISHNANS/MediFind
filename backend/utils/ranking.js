@@ -12,200 +12,251 @@ const SPECIALTY_KEYWORDS = {
   'general physician': {
     aliases:  ['general practice', 'gp', 'family medicine', 'general medicine', 'family physician', 'family doctor', 'primary care physician'],
     positive: ['general', 'multi', 'medical', 'polyclinic', 'family', 'primary care', 'practice'],
-    // Had only ['veterinary', 'animal'] while 24 of the 34 specialties here
-    // already excluded eye and dental — and this is the one that matters most,
-    // since the diagnosis engine defaults `specialist` to "General Physician",
-    // so it backs the majority of real searches. A single-speciality clinic
-    // still survives this if its name ALSO carries a positive ("... Eye
-    // Hospital and Medical College" keeps 'medical'), which is the intended
-    // behaviour of the hasNegative && !hasPositive rule below.
-    negative: [
-      'eye', 'optical', 'ophthalm', 'vision', 'netralaya', 'nethralaya',
-      'dental', 'maternity', 'fertility', 'veterinary', 'animal',
-      'skin', 'derma', 'cosmetic',
-    ],
   },
   'infectious disease specialist': {
     aliases:  ['infectious disease', 'infectious diseases', 'id specialist'],
     positive: ['infectious', 'infection clinic', 'tropical disease', 'fever clinic', 'communicable disease'],
-    negative: ['eye', 'dental', 'maternity', 'ortho', 'ent'],
   },
   pulmonologist: {
     aliases:  ['pulmonology', 'chest specialist', 'lung specialist', 'respiratory medicine', 'pulmonary medicine', 'chest physician'],
     positive: ['pulmonolog', 'chest', 'respiratory', 'lung', 'thoracic', 'breathe', 'copd', 'asthma', 'bronch'],
-    negative: ['eye', 'dental', 'maternity', 'child', 'pediatric', 'skin', 'ent', 'ortho', 'fertility', 'cardio', 'neuro'],
   },
   gastroenterologist: {
     aliases:  ['gastroenterology', 'gi specialist', 'digestive disease specialist', 'stomach specialist'],
     positive: ['gastro', 'digest', 'colon', 'endoscopy', 'stomach'],
-    negative: ['eye', 'dental', 'maternity', 'ortho', 'skin', 'ent', 'cardio'],
   },
   hepatologist: {
     aliases:  ['hepatology', 'liver specialist', 'liver disease specialist'],
     positive: ['hepatol', 'liver', 'hepatitis', 'cirrhosis', 'bile'],
-    negative: ['eye', 'dental', 'maternity', 'child', 'pediatric', 'skin', 'ent', 'cardio', 'ortho'],
   },
   cardiologist: {
     aliases:  ['cardiology', 'heart specialist', 'cardiac'],
     positive: ['cardio', 'heart', 'cardiac', 'pacemaker', 'angio', 'echo', 'ecg'],
-    negative: ['eye', 'dental', 'maternity', 'child', 'pediatric', 'skin', 'ent', 'ortho', 'fertility', 'ayurved', 'homeo'],
   },
   'vascular specialist': {
     aliases:  ['vascular surgery', 'vein specialist', 'vascular medicine', 'vascular surgeon'],
     positive: ['vascular', 'vein', 'varicose', 'artery'],
-    negative: ['eye', 'dental', 'maternity', 'child', 'pediatric', 'skin', 'ent'],
   },
   neurologist: {
     aliases:  ['neurology', 'brain specialist', 'nerve specialist'],
     positive: ['neuro', 'brain', 'nerve', 'epilepsy', 'stroke', 'parkinson', 'headache clinic'],
-    negative: ['eye', 'dental', 'maternity', 'child', 'pediatric', 'skin', 'ent', 'ortho', 'fertility', 'ayurved', 'homeo'],
   },
   orthopedic: {
     aliases:  ['orthopedics', 'bone specialist', 'orthopaedic', 'orthopaedics', 'bone doctor', 'orthopedic specialist', 'orthopaedic specialist'],
     positive: ['ortho', 'bone', 'joint', 'spine', 'fracture', 'trauma', 'sports medicine'],
-    negative: ['eye', 'dental', 'maternity', 'child', 'skin', 'ent', 'cardio', 'neuro'],
   },
   rheumatologist: {
     aliases:  ['rheumatology', 'arthritis specialist'],
     positive: ['rheumatolog', 'autoimmune', 'arthritis', 'lupus', 'connective tissue'],
-    negative: ['eye', 'dental', 'maternity', 'child', 'pediatric', 'ortho', 'cardio', 'neuro'],
   },
   endocrinologist: {
     aliases:  ['endocrinology', 'hormone specialist'],
     positive: ['endocrinolog', 'thyroid', 'hormone', 'diabetes', 'metabolic', 'gland', 'diabetolog'],
-    negative: ['eye', 'dental', 'maternity', 'child', 'pediatric', 'skin', 'ent', 'ortho'],
   },
   urologist: {
     aliases:  ['urology', 'urinary specialist', 'prostate specialist'],
     positive: ['urolog', 'prostate', 'bladder', 'kidney stone', 'renal stone', 'nephro urology'],
-    negative: ['eye', 'dental', 'maternity', 'skin', 'ent', 'cardio', 'neuro', 'ortho'],
   },
   nephrologist: {
     aliases:  ['nephrology', 'kidney specialist', 'renal specialist'],
     positive: ['nephrol', 'kidney', 'renal', 'dialysis', 'transplant'],
-    negative: ['eye', 'dental', 'maternity', 'child', 'pediatric', 'skin', 'ent', 'cardio'],
   },
   dermatologist: {
     aliases:  ['dermatology', 'skin specialist', 'skin doctor'],
     positive: ['skin', 'derma', 'cosmetic', 'hair', 'nail', 'laser'],
-    negative: ['eye', 'dental', 'maternity', 'child', 'ortho', 'cardio', 'neuro'],
   },
   psychiatrist: {
     aliases:  ['psychiatry', 'mental health', 'mental health specialist', 'psychological medicine'],
     positive: ['psychiatry', 'mental', 'mind', 'psych', 'behavioural', 'addiction', 'rehab'],
-    negative: ['veterinary', 'animal'],
   },
   hematologist: {
     aliases:  ['hematology', 'haematology', 'blood specialist', 'blood disorder specialist', 'haematologist'],
     positive: ['hematolog', 'haematolog', 'blood disorder', 'anemia', 'anaemia', 'thalassemia', 'leukemia'],
-    negative: ['eye', 'dental', 'maternity', 'ortho', 'ent'],
   },
   'ent specialist': {
     aliases:  ['otolaryngology', 'ear nose throat', 'ent doctor', 'ent surgeon'],
     positive: ['ent', 'ear', 'nose', 'throat', 'sinus', 'laryngo', 'audiolog'],
-    negative: ['eye', 'dental', 'maternity', 'ortho', 'cardio'],
   },
   ophthalmologist: {
     aliases:  ['ophthalmology', 'eye specialist', 'eye doctor'],
     positive: ['eye', 'eyes', 'vision', 'optic', 'aravind', 'sankara', 'retina', 'glaucoma', 'cataract', 'cornea', 'ocular', 'sight', 'netralaya', 'nethralaya', 'netra', 'nayan', 'drishti'],
-    negative: ['dental', 'maternity', 'ortho', 'cardio', 'ent'],
   },
   gynecologist: {
     aliases:  ['gynecology', 'gynaecology', 'obstetrics', 'obgyn', "women's health", 'maternity specialist', 'gynaecologist'],
     positive: ['gynec', 'gynaec', 'maternity', 'women', 'obstetric', 'fertility', 'prenatal', 'antenatal'],
-    negative: ['child', 'pediatric', 'veterinary'],
   },
   pediatrician: {
     aliases:  ['pediatrics', 'paediatrics', 'child specialist', "children's hospital", 'child doctor', 'paediatrician'],
     positive: ['child', 'pediatric', 'paediatric', 'kids', 'neonat', 'infant'],
-    negative: ['adult', 'geriatric', 'veterinary'],
   },
   allergist: {
     aliases:  ['allergy specialist', 'immunology', 'allergy and immunology', 'allergist immunologist'],
     positive: ['allerg', 'immunolog', 'rhinitis', 'sensitisation', 'patch test'],
-    negative: ['eye', 'dental', 'maternity', 'ortho', 'cardio'],
   },
   'emergency medicine': {
     aliases:  ['emergency physician', 'casualty', 'trauma center', 'trauma centre', 'er', 'accident and emergency', 'emergency room'],
     positive: ['emergency', 'casualty', 'trauma', 'accident', '24 hour', '24x7', 'ambulance'],
-    // Was []. Every other specialty in this table carries negatives; emergency
-    // medicine carried none, so a single-speciality facility that cannot treat
-    // an emergency at all — an eye hospital, a dental clinic, a maternity home
-    // — stayed in the fallback list and, being nearer, was returned as the
-    // best match for someone with chest pain. Nearest is the wrong answer when
-    // the nearest place does not do emergencies.
-    // 'netralaya' is included because 'eye' misses the way many Indian eye
-    // hospitals are actually named (Sankara Nethralaya, Dr Agarwal's
-    // Netralaya). 'netra', 'nayan' and 'drishti' are left OUT deliberately —
-    // they also occur as ordinary given names in general hospital names, and
-    // a false disqualification in an emergency search is worse than a false
-    // inclusion.
-    negative: [
-      'eye', 'optical', 'ophthalm', 'vision', 'netralaya', 'nethralaya',
-      'dental', 'maternity', 'fertility', 'veterinary', 'animal',
-      'skin', 'derma', 'cosmetic',
-    ],
   },
   dentist: {
     aliases:  ['dental clinic', 'dental surgeon', 'oral health', 'dental care'],
     positive: ['dental', 'dentist', 'tooth', 'smile', 'oral', 'maxillo'],
-    negative: ['eye', 'maternity', 'ortho', 'cardio', 'ent'],
   },
   oncologist: {
     aliases:  ['oncology', 'cancer specialist', 'cancer center', 'cancer centre'],
     positive: ['oncol', 'cancer', 'tumor', 'tumour', 'chemotherapy', 'radiation'],
-    negative: ['eye', 'dental', 'veterinary'],
   },
   'general surgeon': {
     aliases:  ['general surgery', 'surgeon'],
     positive: ['surgery', 'surgical', 'surgeon'],
-    negative: ['eye', 'dental', 'veterinary'],
   },
   neurosurgeon: {
     aliases:  ['neurosurgery', 'brain surgeon', 'spine surgeon'],
     positive: ['neurosurg', 'brain surgery', 'spine surgery'],
-    negative: ['eye', 'dental', 'maternity', 'child', 'skin', 'ent'],
   },
   physiotherapist: {
     aliases:  ['physiotherapy', 'physical therapy', 'rehab specialist', 'physical therapist'],
     positive: ['physio', 'physiotherapy', 'rehabilitation', 'rehab'],
-    negative: ['eye', 'dental', 'veterinary'],
   },
   diabetologist: {
     aliases:  ['diabetes clinic', 'diabetes specialist', 'sugar specialist', 'diabetes center', 'diabetes centre'],
     positive: ['diabet', 'sugar clinic', 'blood sugar'],
-    negative: ['eye', 'dental', 'maternity', 'ortho', 'ent'],
   },
   radiologist: {
     aliases:  ['radiology', 'imaging center', 'imaging centre', 'diagnostic imaging', 'diagnostic center', 'diagnostic centre'],
     positive: ['radiolog', 'imaging', 'scan', 'x-ray', 'mri', 'ct scan', 'ultrasound', 'diagnostic'],
-    negative: ['veterinary'],
   },
   anesthesiologist: {
     aliases:  ['anesthesia', 'anaesthesiologist', 'anaesthesia', 'anesthetist', 'anaesthetist'],
     positive: ['anesthesi', 'anaesthesi'],
-    negative: ['eye', 'dental', 'veterinary'],
   },
   'sports medicine specialist': {
     aliases:  ['sports medicine', 'sports injury clinic', 'sports injury specialist'],
     positive: ['sports medicine', 'sports injury', 'sports clinic'],
-    negative: ['eye', 'dental', 'maternity', 'child'],
   },
   geriatrician: {
     aliases:  ['geriatrics', 'elderly care specialist', 'old age specialist', 'geriatric medicine'],
     positive: ['geriatric', 'elderly care', 'senior citizen'],
-    negative: ['child', 'pediatric', 'veterinary'],
   },
   andrologist: {
     aliases:  ['andrology', 'male fertility specialist'],
     positive: ['androlog', 'male fertility', "men's health"],
-    negative: ['eye', 'dental', 'maternity', 'child'],
   },
   dietitian: {
     aliases:  ['nutritionist', 'dietician', 'nutrition clinic', 'dietary specialist'],
     positive: ['diet', 'nutrition', 'nutritionist', 'dietician'],
-    negative: ['eye', 'dental', 'veterinary'],
   },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Facility specialisation domains
+//
+// Replaces the per-specialty `negative` keyword lists this table used to
+// carry. Those encoded the problem backwards: each specialty had to name
+// every OTHER kind of facility it did not want, so 34 lists had to stay
+// mutually consistent by hand, and a gap in any one of them was invisible
+// until a patient saw the wrong hospital. Emergency medicine shipped with an
+// empty list and returned an eye hospital for chest pain; general physician,
+// which backs most searches, was missing eye and dental.
+//
+// The relationship is really a property of the FACILITY, not of the
+// specialty: an eye hospital is an eye hospital no matter who is searching.
+// So classify the facility once, then ask whether the requested specialty
+// wants that kind of place. Adding a specialty now needs no negative list at
+// all, and a facility type nobody anticipated is excluded by default rather
+// than included by default.
+//
+// Order matters — the FIRST domain listed wins the `domain` field, so the
+// more specific reading of an ambiguous word comes first ("Laser Eye
+// Surgery" is eye, not skin; "Laser Dentistry" is dental, not skin).
+// `domains` keeps every match, so a genuinely dual-specialty facility
+// ("Eye and ENT Hospital", "Spine and Neuro Centre") satisfies either search.
+// ─────────────────────────────────────────────────────────────────────────────
+const FACILITY_DOMAINS = [
+  { domain: 'eye',         keywords: ['eye', 'eyes', 'ophthalm', 'optical', 'vision', 'netralaya', 'nethralaya', 'retina', 'cataract', 'glaucoma', 'cornea'] },
+  { domain: 'dental',      keywords: ['dental', 'dentist', 'tooth', 'teeth', 'oral', 'maxillo'] },
+  { domain: 'maternity',   keywords: ['maternity', 'fertility', 'ivf', 'prenatal', 'antenatal', 'obstetric', 'gynec', 'gynaec'] },
+  { domain: 'skin',        keywords: ['skin', 'derma', 'cosmetic', 'laser'] },
+  { domain: 'ortho',       keywords: ['ortho', 'bone', 'joint', 'spine', 'fracture'] },
+  // Deliberately NOT bare "ent" — it is a literal substring of "Government"
+  // and "Centre", both everywhere in Indian hospital names.
+  { domain: 'ent',         keywords: ['ent clinic', 'ent hospital', 'ear nose', 'hearing', 'audiolog'] },
+  { domain: 'cardiac',     keywords: ['heart', 'cardiac', 'cardio', 'angio', 'ecg'] },
+  { domain: 'neuro',       keywords: ['neuro', 'brain', 'nerve'] },
+  { domain: 'cancer',      keywords: ['oncol', 'cancer', 'tumor', 'tumour', 'chemotherapy'] },
+  { domain: 'pediatric',   keywords: ['child', 'pediatric', 'paediatric', 'kids', 'neonat'] },
+  // Bare "rehab" is left out on purpose: it reads as de-addiction here but
+  // as physiotherapy just as often ("XYZ Rehabilitation Centre"), and
+  // misfiling a physio centre as psychiatric would hide it from the searches
+  // it should answer.
+  { domain: 'psychiatric', keywords: ['psych', 'mental', 'behavioural', 'behavioral', 'addiction'] },
+  { domain: 'ayurvedic',   keywords: ['ayurved', 'siddha', 'unani', 'homeo', 'naturopathy'] },
+]
+
+// A facility describing itself in any of these terms is a broad-service
+// facility, whatever else its name mentions: "ACS Medical College And
+// Hospital" and "Apollo Multi Specialty Hospital" are general, and a
+// department name in the rest of the string does not narrow them.
+// 'sacred heart' is here as a false-positive guard, not a general signal —
+// it is a common mission-hospital name across India and has nothing to do
+// with cardiology, but 'heart' would otherwise file it under cardiac and
+// hide it from every non-cardiac search.
+const GENERAL_SIGNALS = ['multi', 'general', 'medical college', 'polyclinic', 'sacred heart']
+
+// Veterinary facilities are excluded from every human specialty, including
+// the no-specialty fallback — not a domain mismatch but a category error.
+const VETERINARY_SIGNALS = ['veterinary', 'animal', 'pet clinic', 'pet care', 'pet hospital']
+
+// Canonical specialty → the facility domain(s) it is willing to be matched
+// with. Anything absent accepts no specialized domain at all, so a facility
+// built around some other body part is excluded automatically.
+const SPECIALTY_DOMAINS = {
+  cardiologist:                 ['cardiac'],
+  'vascular specialist':        ['cardiac'],
+  neurologist:                  ['neuro'],
+  neurosurgeon:                 ['neuro'],
+  ophthalmologist:              ['eye'],
+  dentist:                      ['dental'],
+  gynecologist:                 ['maternity'],
+  dermatologist:                ['skin'],
+  orthopedic:                   ['ortho'],
+  'sports medicine specialist': ['ortho'],
+  'ent specialist':             ['ent'],
+  oncologist:                   ['cancer'],
+  pediatrician:                 ['pediatric'],
+  psychiatrist:                 ['psychiatric'],
+}
+
+/**
+ * Reads a facility's name, speciality tag and address and decides what KIND
+ * of place it is.
+ *
+ * @returns {{ type: "general"|"specialized", domain: string|null, domains: string[], veterinary: boolean }}
+ *   `domain` is the primary (first-listed) match, kept for readability;
+ *   `domains` is every match, which is what the disqualification check uses.
+ *   An unnamed or untagged facility comes back "general" — benefit of the
+ *   doubt, since excluding a facility we know nothing about would quietly
+ *   drop real hospitals that OSM simply records thinly.
+ */
+function classifyFacility(facility) {
+  const text = [facility?.name, facility?.speciality, facility?.address]
+    .filter(Boolean).join(' ').toLowerCase()
+
+  if (!text.trim()) return { type: 'general', domain: null, domains: [], veterinary: false }
+
+  const veterinary = VETERINARY_SIGNALS.some((k) => startsWord(text, k))
+  if (veterinary) return { type: 'specialized', domain: 'veterinary', domains: ['veterinary'], veterinary: true }
+
+  if (GENERAL_SIGNALS.some((k) => startsWord(text, k))) {
+    return { type: 'general', domain: null, domains: [], veterinary: false }
+  }
+
+  const domains = FACILITY_DOMAINS
+    .filter((d) => d.keywords.some((k) => startsWord(text, k)))
+    .map((d) => d.domain)
+
+  return domains.length > 0
+    ? { type: 'specialized', domain: domains[0], domains, veterinary: false }
+    : { type: 'general', domain: null, domains: [], veterinary: false }
 }
 
 // ── Word-boundary-safe substring match ───────────────────────────────────────
@@ -293,17 +344,28 @@ function scoreFacility(facility, canonicalSpecialty, userLat, userLng) {
   const positiveKeywords = def
     ? [...def.positive, ...(def.aliases ?? []).filter((alias) => alias.length > 2)]
     : []
-  const negativeKeywords = def ? def.negative : []
 
-  // HARD DISQUALIFY — wrong specialty. Uses startsWord(), not includesWord():
-  // these lists are word-stems/prefixes ('cardio' should match "Cardiology"),
-  // which startsWord() allows while still blocking the mid-word collisions
-  // unanchored .includes() would cause (see startsWord()'s doc comment).
-  const hasNegative = negativeKeywords.some((k) => startsWord(nameLower, k))
-  const hasPositive = positiveKeywords.some((k) => startsWord(nameLower, k))
-  if (hasNegative && !hasPositive) {
-    return { totalScore: 0, distanceKm, disqualified: true, reason: 'wrong-specialty' }
+  // HARD DISQUALIFY — see classifyFacility() above. A general facility is
+  // never disqualified; a specialized one survives only when the requested
+  // specialty actually wants that kind of place.
+  const classification = classifyFacility(facility)
+
+  if (classification.veterinary) {
+    return { totalScore: 0, distanceKm, disqualified: true, reason: 'veterinary', classification }
   }
+
+  if (canonicalSpecialty && classification.type === 'specialized') {
+    const wanted = SPECIALTY_DOMAINS[canonicalSpecialty] ?? []
+    if (!classification.domains.some((d) => wanted.includes(d))) {
+      return { totalScore: 0, distanceKm, disqualified: true, reason: 'wrong-specialty', classification }
+    }
+  }
+
+  // Positive matching is unchanged — it decides the specialty SCORE (below),
+  // never whether a facility is eligible. The two questions are separate: a
+  // general hospital with no cardiology keyword is still a valid answer for a
+  // cardiology search, it just scores lower than a heart centre.
+  const hasPositive = positiveKeywords.some((k) => startsWord(nameLower, k))
 
   // SPECIALTY MATCH SCORE (35%)
   let specialtyScore = 0
@@ -337,6 +399,7 @@ function scoreFacility(facility, canonicalSpecialty, userLat, userLng) {
     totalScore: Math.round(totalScore),
     distanceKm,
     disqualified: false,
+    classification,
     breakdown: { specialtyScore, distanceScore, typeScore, completenessScore },
   }
 }
@@ -416,6 +479,10 @@ function findBestMatch(facilities, specialty, userLat, userLng) {
     candidates = scored
       .filter((f) => f.type === 'hospital')
       .map((f) => ({ ...f, ...scoreFacility(f, null, userLat, userLng) }))
+      // A null specialty waives the DOMAIN check but not the veterinary
+      // one, so re-filter: a vet hospital is never an answer for a person,
+      // not even as a last resort.
+      .filter((f) => !f.disqualified)
     lastResort = candidates.length > 0
   }
 
@@ -423,11 +490,23 @@ function findBestMatch(facilities, specialty, userLat, userLng) {
     return { bestMatch: null, note: null, facilities: null }
   }
 
-  // Score-based, not distance-only: a well-documented hospital slightly
-  // farther away should outrank a bare unnamed node that's marginally
-  // closer — totalScore already factors in distance (40%) alongside type
-  // and completeness, so this is strictly more informed than distance alone.
-  candidates.sort((a, b) => b.totalScore - a.totalScore)
+  // General facilities first, then by score.
+  //
+  // The general-before-specialized tier matters because this is the "nothing
+  // matched what you asked for" path. A specialized facility only reaches
+  // here when its domain was acceptable but its name carried no positive
+  // keyword, and against a request nothing satisfied, a hospital that treats
+  // everything is a better answer than one built around a single body part —
+  // regardless of which is nearer. Distance is 40% of totalScore, so without
+  // this tier a closer specialist would keep winning the very case where the
+  // engine has already admitted it has no idea what the patient needs.
+  //
+  // Within a tier, score rather than distance alone: a well-documented
+  // hospital slightly farther away should outrank a bare unnamed node that's
+  // marginally closer, and totalScore already weighs distance alongside type
+  // and completeness.
+  const isGeneral = (f) => (f.classification?.type ?? 'general') === 'general'
+  candidates.sort((a, b) => (isGeneral(b) - isGeneral(a)) || (b.totalScore - a.totalScore))
   const allFormatted = candidates.map((f) => formatFacility(f, specialty))
 
   return {
@@ -442,4 +521,4 @@ function findBestMatch(facilities, specialty, userLat, userLng) {
   }
 }
 
-export { haversine, findBestMatch, normalizeSpecialty, SPECIALTY_KEYWORDS }
+export { haversine, findBestMatch, normalizeSpecialty, classifyFacility, SPECIALTY_KEYWORDS, SPECIALTY_DOMAINS }
