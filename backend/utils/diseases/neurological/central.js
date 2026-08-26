@@ -102,7 +102,15 @@ export const central = [
     symptoms: {
       primary: [
         { name: 'fever', weight: 0.7, description: '—' },
-        { name: 'neck stiffness', weight: 0.7, description: '—' },
+        // 0.7 → 0.9, matching bacterial_meningitis's weight for the SAME
+        // symptom. Fever and headache are shared with half the DB; neck
+        // stiffness is the sign that actually separates meningitis from an
+        // ordinary febrile illness, and weighting it level with them meant
+        // this entry scored nearly as high on "fever + headache" alone as it
+        // did on the full triad — close enough to out-rank a textbook flu on
+        // a seasonal bonus. The extra weight loads the score onto the
+        // discriminating sign, where it belongs.
+        { name: 'neck stiffness', weight: 0.9, description: '—' },
         { name: 'headache', weight: 0.7, description: 'Severe' },
       ],
       secondary: [

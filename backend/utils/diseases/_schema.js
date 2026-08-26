@@ -13,7 +13,10 @@
 //   category: "Category",                       // e.g. "Infectious - Viral"
 //   aliases: ["other names", "common names"],
 //   symptoms: {
-//     primary: [{ name, weight, description }],       // ≥2 required for a match
+//     primary: [{ name, weight, description }],       // ≥2 matched for a normal match; a
+//                                                     // 1–3 word input can qualify on ONE
+//                                                     // match of weight ≥0.8 (localDiagnosis.js
+//                                                     // → SHORT_INPUT_*)
 //     secondary: [{ name, weight, description }],      // boosts confidence
 //     differentiating: [{ name, weight, description }], // distinguishes from similar diseases
 //   },

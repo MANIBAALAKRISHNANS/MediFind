@@ -7,14 +7,26 @@ export const viral = [
     category: 'Infectious - Viral',
     aliases: ['flu', 'seasonal flu'],
     symptoms: {
+      // `cough` is primary, not secondary: the standard influenza-like-illness
+      // case definition is fever PLUS cough or sore throat, so "fever and
+      // cough" is the presentation flu should be recognised from. As a
+      // secondary it could never count toward the engine's >=2-matched-primary
+      // gate, so the single most common way a patient describes flu — "fever,
+      // headache, cough" — matched exactly ONE primary (fever), failed the
+      // gate, and was dropped from the candidate list entirely, handing the
+      // top rank to rarer fever+headache conditions. Weight deliberately
+      // unchanged at 0.5: this reclassifies the symptom, it does not inflate
+      // the flu's score. `fatigue` moves the other way — real and prominent,
+      // but not part of the case definition and far too non-specific to gate
+      // matching on.
       primary: [
         { name: 'fever', weight: 0.9, description: 'Sudden high fever, often 101–104°F' },
         { name: 'body aches', weight: 0.8, description: 'Severe muscle and body aches, more intense than a cold' },
-        { name: 'fatigue', weight: 0.7, description: 'Extreme tiredness that can last 1–2 weeks' },
+        { name: 'cough', weight: 0.5, description: 'Usually dry' },
       ],
       secondary: [
         { name: 'headache', weight: 0.5, description: 'Often accompanies fever' },
-        { name: 'cough', weight: 0.5, description: 'Usually dry' },
+        { name: 'fatigue', weight: 0.7, description: 'Extreme tiredness that can last 1–2 weeks' },
         { name: 'sore throat', weight: 0.4, description: 'Mild to moderate' },
         { name: 'chills', weight: 0.5, description: 'Common with fever spikes' },
       ],

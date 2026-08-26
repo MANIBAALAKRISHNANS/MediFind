@@ -28,6 +28,38 @@ const SEASONAL_BONUS = 5
 // realistically accrue (duration + a couple of risk factors + prevalence + season).
 const BONUS_NORMALIZER = 25
 
+// ── Short-input relaxation ──────────────────────────────────────────────────
+// A terse, 1–3 word complaint ("chest pain", "blood in stool") carries real
+// clinical signal but structurally cannot satisfy the >=2-matched-primary
+// gate below: there simply aren't enough words in the input to match two
+// symptoms. Every such input fell through to defaultDiagnosis() — the engine
+// answered "Unspecified Condition, 15%" to the exact phrasing a worried user
+// is most likely to type first. When the input is this short, one match
+// against a HIGH-weight primary symptom (a symptom its own entry treats as
+// near-defining, not incidental) plus a real total score is the strongest
+// evidence the input can physically carry, so accept it. The token gate is
+// what keeps this narrow: a longer description that still only lands one
+// primary match is a genuinely weak match and stays rejected.
+const SHORT_INPUT_MAX_TOKENS = 3
+const SHORT_INPUT_MIN_SCORE = 25
+const SHORT_INPUT_MIN_PRIMARY_WEIGHT = 0.8
+
+// ── Common-condition priority ───────────────────────────────────────────────
+// The confidence at which a match stops being "one plausible reading among
+// several" and becomes the answer. Candidates at or above it are ranked as a
+// band ABOVE every borderline (< 0.5) candidate, regardless of raw score.
+// Raw score and confidence measure different things — score rewards absolute
+// symptom weights plus prevalence/seasonal bonuses, confidence rewards how
+// much of THIS entry's own picture the input actually filled in — and a rare
+// condition matching 2 of its 3 primaries can out-SCORE a common one while
+// explaining the input no better. That is how "fever, headache, cough" (a
+// textbook flu) came back as Viral Meningitis at 45%: meningitis beat
+// Influenza by 1 point of monsoon seasonal bonus, then carried its own
+// entry-level urgency:'emergency' straight to the user's screen. Banding by
+// confidence first keeps the borderline red-flag-adjacent match where it
+// belongs — in the differentials, still visible — instead of at the top.
+const COMMON_CONDITION_MIN_CONFIDENCE = 0.5
+
 // India seasons by month (0-indexed, matching Date#getMonth()).
 const SEASON_MONTHS = {
   monsoon: [5, 6, 7, 8],       // Jun–Sep
@@ -154,6 +186,13 @@ function computeConfidence(result, entry) {
 
   const raw = primaryRatio * 0.6 + secondaryRatio * 0.25 + bonusFactor * 0.15
   return Math.min(CONFIDENCE_CAP, Math.max(CONFIDENCE_FLOOR, raw))
+}
+
+/** Ranking band: 1 for a confident match, 0 for a borderline one. Used as the
+ * primary sort key so a confident common condition is never out-ranked on raw
+ * score alone by a borderline match that happens to carry an urgent entry. */
+function confidenceBand(result) {
+  return result.confidence >= COMMON_CONDITION_MIN_CONFIDENCE ? 1 : 0
 }
 
 // ── Red flag check ────────────────────────────────────────────────────────────
@@ -286,7 +325,13 @@ export function localDiagnose(symptomText, context = {}) {
   // threshold-independent risk check and the final response shaping).
   for (const result of scored) {
     result.redFlagsMatched = checkRedFlags(result.entry, features.normalizedText)
+    // Confidence is now a RANKING input (see the banded sort below), not just
+    // a display field computed on the final three, so it has to exist for
+    // every candidate before any ordering decision is made.
+    result.confidence = computeConfidence(result, result.entry)
   }
+
+  const tokenCount = features.normalizedText ? features.normalizedText.split(' ').length : 0
 
   // MIN_PRIMARY_MATCHES is a "need genuine overlap, not one coincidental
   // word" anti-false-positive gate — but 58 of 275 DB entries (e.g.
@@ -299,13 +344,47 @@ export function localDiagnose(symptomText, context = {}) {
   // requirement to what the entry actually defines instead of padding
   // single-symptom conditions with synthetic "primary" symptoms just to
   // satisfy a fixed threshold.
-  const qualifying = scored.filter((r) => {
+  let qualifying = scored.filter((r) => {
     const primaryCount = r.entry.symptoms?.primary?.length ?? 0
     const requiredPrimaryMatches = Math.max(1, Math.min(MIN_PRIMARY_MATCHES, primaryCount))
     return r.score >= MIN_SCORE && r.matchedPrimary.length >= requiredPrimaryMatches
   })
 
-  qualifying.sort((a, b) => b.score - a.score)
+  // Short-input relaxation — see SHORT_INPUT_* above. Deliberately a
+  // FALLBACK, not a widening of the filter: it runs only when the strict gate
+  // admitted nobody, so it can never inject a weak single-primary candidate
+  // into an otherwise healthy result set, only replace the generic default.
+  const relaxed = []
+  if (qualifying.length === 0 && tokenCount > 0 && tokenCount <= SHORT_INPUT_MAX_TOKENS) {
+    for (const r of scored) {
+      if (r.matchedPrimary.length !== 1) continue
+      if (r.matchedPrimary[0].weight < SHORT_INPUT_MIN_PRIMARY_WEIGHT) continue
+      if (r.score < SHORT_INPUT_MIN_SCORE) continue
+      relaxed.push(r)
+    }
+  }
+
+  const redFlagged = scored
+    .filter((r) => r.redFlagsMatched.length > 0)
+    .sort((a, b) => b.score - a.score)
+
+  if (relaxed.length > 0) {
+    // A matched red flag preempts a relaxed short-input match ONLY when the
+    // red-flagged candidate is itself a confident match. A borderline
+    // red-flag hit (the 45%-and-below band) is exactly the case that used to
+    // bury an obvious common condition under an emergency banner, so it no
+    // longer gets to override — it stays available through the safety net
+    // below for the case where nothing else qualifies at all.
+    const confidentRedFlag = redFlagged.some((r) => r.confidence >= COMMON_CONDITION_MIN_CONFIDENCE)
+    if (!confidentRedFlag) qualifying = relaxed
+  }
+
+  // Rank by confidence band first, then raw score within the band — see
+  // COMMON_CONDITION_MIN_CONFIDENCE above for why score alone was the wrong
+  // sole key.
+  qualifying.sort(
+    (a, b) => (confidenceBand(b) - confidenceBand(a)) || (b.score - a.score),
+  )
 
   const riskFactorsMentioned = []
   if (qualifying.length > 0) {
@@ -338,13 +417,9 @@ export function localDiagnose(symptomText, context = {}) {
     // confidence/severity/urgency pipeline a normally-qualifying match uses
     // (determineSeverity + buildMatchSummary already force severity:'severe'
     // and urgency:'emergency' whenever redFlagsMatched is non-empty).
-    const redFlagged = scored
-      .filter((r) => r.redFlagsMatched.length > 0)
-      .sort((a, b) => b.score - a.score)
-
     if (redFlagged.length > 0) {
       const top = redFlagged[0]
-      const confidence = computeConfidence(top, top.entry)
+      const confidence = top.confidence
       const severity = determineSeverity(top.entry, features, top.redFlagsMatched)
       const primary = buildMatchSummary(top, confidence, severity)
       return { primary, differentials: [], inputParsed, disclaimer }
@@ -355,7 +430,7 @@ export function localDiagnose(symptomText, context = {}) {
 
   const top3 = qualifying.slice(0, 3)
   const summaries = top3.map((result) => {
-    const confidence = computeConfidence(result, result.entry)
+    const confidence = result.confidence
     const severity = determineSeverity(result.entry, features, result.redFlagsMatched)
     return buildMatchSummary(result, confidence, severity)
   })
