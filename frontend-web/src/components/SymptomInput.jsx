@@ -36,7 +36,14 @@ const CHIPS_EXTRA = [
 ]
 
 const MAX = 1000
-const MIN = 10  // backend requires ≥ 10 chars
+// Mirrors the backend's own floor (backend/routes/analyze.js). It was 10,
+// which blocked "headache", "back pain", "fever" and "rash" — the shortest and
+// commonest way someone names what is wrong with them. The engine now answers
+// a sparse complaint with a lower-confidence match and its own "describe more
+// symptoms" note rather than refusing it, so the input box has no reason to
+// refuse it either. Keep the two numbers in step: a client minimum above the
+// server's only makes a valid request unsendable.
+const MIN = 3
 
 export default function SymptomInput({ onSubmit, loading = false, error = null }) {
   const [text, setText] = useState('')

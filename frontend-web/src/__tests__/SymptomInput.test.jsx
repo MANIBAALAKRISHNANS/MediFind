@@ -14,18 +14,35 @@ describe('SymptomInput', () => {
     expect(screen.getByRole('button', { name: /analyze symptoms/i })).toBeInTheDocument()
   })
 
-  it('submit button is disabled until at least 10 characters are entered', async () => {
+  // The minimum was 10 characters until the backend dropped its own floor to 3
+  // — see MIN in SymptomInput.jsx. 'short' (5 chars) is now a submittable
+  // input, so the boundary moved down with the limit rather than away.
+  it('submit button is disabled until at least 3 characters are entered', async () => {
     const user = userEvent.setup()
     render(<SymptomInput onSubmit={vi.fn()} />)
 
     const button = screen.getByRole('button', { name: /analyze symptoms/i })
     expect(button).toBeDisabled()
 
-    await user.type(screen.getByLabelText('Symptom description'), 'short')
+    await user.type(screen.getByLabelText('Symptom description'), 'ab')
     expect(button).toBeDisabled()
 
-    await user.type(screen.getByLabelText('Symptom description'), ' but now long enough')
+    await user.type(screen.getByLabelText('Symptom description'), 'c')
     expect(button).toBeEnabled()
+  })
+
+  // The single-word complaints the old 10-character floor rejected outright.
+  it('accepts a single-word symptom like "headache" or "rash"', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    render(<SymptomInput onSubmit={onSubmit} />)
+
+    await user.type(screen.getByLabelText('Symptom description'), 'headache')
+    const button = screen.getByRole('button', { name: /analyze symptoms/i })
+    expect(button).toBeEnabled()
+
+    await user.click(button)
+    expect(onSubmit).toHaveBeenCalledWith('headache')
   })
 
   it('calls onSubmit with the trimmed symptom text when clicked', async () => {
